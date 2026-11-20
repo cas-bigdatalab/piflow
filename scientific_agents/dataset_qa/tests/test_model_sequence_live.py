@@ -21,6 +21,9 @@ No model decision, correction, plan, or continuation is supplied by this test.
 For real PubChem upstream I/O use test_workflow_live.py instead.
 """
 import asyncio
+from collections import Counter
+from contextlib import asynccontextmanager
+from contextvars import ContextVar
 from copy import deepcopy
 import csv
 import hashlib
@@ -67,15 +70,40 @@ COMPOUND_TURN = ("compounds_80_1000",
     f"SMILES 是 {SMILES}。相似度至少 80%，分子量在 100 到 500 之间，"
     "LogP 在 -1 到 5 之间，先帮我找1000 条。并保存为csv文件格式")
 CHANGED_TURN = ("compounds_90_100", "其他条件不变，把相似度改成90%，只要100条，并保存为CSV文件。")
+QUERY_ONLY_TURN = ("compounds_query_only", COMPOUND_TURN[1].removesuffix("并保存为csv文件格式"))
+FORMAT_ONLY_TURN = ("compounds_export_only", "把刚才这批结果保存为 CSV，保留全部记录和现有字段。")
+COMBINED_TURN = ("detail_directory", "看下这个数据集的详情以及目录结构")
 SCENARIOS = {
     "catalog_separate": CATALOG_TURNS,
     "compounds_separate": (COMPOUND_TURN, CHANGED_TURN),
+    "compounds_format_only": (QUERY_ONLY_TURN, FORMAT_ONLY_TURN),
     "same_session": (*CATALOG_TURNS, COMPOUND_TURN, CHANGED_TURN),
+    "catalog_combined": (CATALOG_TURNS[0], COMBINED_TURN),
+    "catalog_combined_empty_directory": (CATALOG_TURNS[0], COMBINED_TURN),
+    "catalog_combined_unsupported_directory": (CATALOG_TURNS[0], COMBINED_TURN),
 }
 
 
 class AcceptanceFailure(Exception):
     """Fixed harness-owned failure text, safe to include in reports."""
+
+
+def foreground_marker(monkeypatch):
+    """Use the shared foreground gate, including search pages and parallel calls."""
+    foreground = ContextVar("qa_acceptance_business_call", default=False)
+    original = DatasetQA._foreground_mcp
+
+    @asynccontextmanager
+    async def marked(service):
+        token = foreground.set(True)
+        try:
+            async with original(service):
+                yield
+        finally:
+            foreground.reset(token)
+
+    monkeypatch.setattr(DatasetQA, "_foreground_mcp", marked)
+    return foreground
 
 
 def require(condition, message):
@@ -133,7 +161,7 @@ def safe_arguments(value):
         "title", "field", "subject", "author", "doi", "sources", "page", "page_size", "minimum", "maximum",
         "server", "group", "offset", "planning", "continuation", "steps", "plan", "arguments", "tool", "key",
         "depends_on", "goals", "description", "output", "outcomes", "produces", "kind", "checks", "requires",
-        "__qa_task", "complete_request", "keywords", "original_keywords"}
+        "__qa_task", "complete_request", "keywords", "original_keywords", "source_requirements", "criteria", "fields"}
     if isinstance(value, dict):
         result = {}
         for key, item in value.items():
@@ -268,6 +296,7 @@ class SimulatedUpstream:
     """Faithful response envelopes, without touching real corpus/PubChem."""
     def __init__(self):
         self.calls = []
+        self.directory_mode = "nonempty"
 
     def search(self, *, page_num=1, page_size=5, filters=None):
         self.calls.append("corpus_search")
@@ -291,6 +320,10 @@ class SimulatedUpstream:
         self.calls.append("corpus_directory")
         if cstr != STATION["cstr"] or file_id is not None:
             raise ValueError("Unknown simulated directory identifier")
+        if self.directory_mode == "unsupported":
+            return {"code": 501, "message": "此模拟数据源不支持目录查询", "data": None}
+        if self.directory_mode == "empty":
+            return {"code": 200, "data": []}
         return {"code": 200, "data": [
             {"fileId": "fixture-observations", "name": "observations.jsonl", "isFile": True,
                 "path": "/observations.jsonl", "downloadUrl": "https://fixtures.invalid/observations.jsonl"},
@@ -346,6 +379,19 @@ def query_arguments(threshold=80, limit=1000):
             {"field": "XLogP", "minimum": -1, "maximum": 5}]}
 
 
+def verify_query_arguments(arguments, threshold, limit):
+    expected = query_arguments(threshold, limit)
+    for key in ("smiles", "similarity_threshold", "limit"):
+        require(arguments.get(key) == expected[key] and type(arguments.get(key)) is type(expected[key]),
+            "Query value/type mismatch: " + key)
+    require(isinstance(arguments.get("filters"), list), "filters must be an actual JSON array")
+    rules = {item["field"]: item for item in arguments["filters"]}
+    require(len(arguments["filters"]) == 2 and rules == {item["field"]: item for item in expected["filters"]},
+        "Property filters differ from user constraints")
+    require(all(type(item[key]) in (int, float) for item in rules.values() for key in ("minimum", "maximum")),
+        "Filter bounds must have JSON number types")
+
+
 async def verify_csv(output, base, threshold, limit):
     require(output.get("resource", {}).get("format") == "csv", "Expected a CSV result resource")
     require(output.get("record_count") == limit, "CSV count differs from requested fixture count")
@@ -394,6 +440,86 @@ def verify_search(calls, saved):
     return {"mode": "broad", **view}
 
 
+def verify_combined_retrieval(calls, saved, events, reference, outputs, failures, *, directory="nonempty"):
+    """Verify independent outcomes without prescribing model rounds or execution order."""
+    detail_name, directory_name = "get_corpus_dataset_detail", "get_corpus_dataset_directory"
+    require(Counter(name for name, _ in calls) == Counter([detail_name, directory_name]),
+        "Combined retrieval must call detail and directory once each, without replay or unrelated MCP work")
+    require(all(args.get("cstr") == reference for _, args in calls), "Combined results did not use the same grounded CSTR")
+    require(next(args for name, args in calls if name == directory_name).get("file_id") is None,
+        "Combined root directory used a guessed file identifier")
+    operations = {item.get("capability", {}).get("name"): item for item in saved.get("operations", [])}
+    require(detail_name in operations and directory_name in operations, "Combined outcomes are missing independent operation receipts")
+    detail = operations[detail_name]
+    require(detail["state"] == "succeeded", "Combined request lost successful dataset details")
+    successful = [attempt for attempt in detail.get("attempts", []) if attempt.get("state") == "succeeded"]
+    require(len(successful) == 1 and detail_name in outputs, "Dataset details were repeated or lack source evidence")
+    require(reference in json.dumps(outputs[detail_name], ensure_ascii=False), "Detail source response omitted its grounded CSTR")
+    cards = result_cards(events)
+    delivered = {card["result_id"] for card in cards}
+    require(successful[0]["result_id"] in delivered, "Successful detail receipt was not delivered")
+    directory_operation = operations[directory_name]
+    error = saved.get("error") or {}
+    if directory == "unsupported":
+        failure = failures.get(directory_name)
+        evidence = str(getattr(failure, "detail", "")).casefold()
+        require(failure is not None and getattr(failure, "code", None) == "tool_failed"
+            and any(term in evidence for term in ("not support", "unsupported", "不支持", "未支持")),
+            "Directory failure is not an explicitly unsupported upstream result")
+        require(directory_operation["state"] in {"failed", "unavailable"}, "Unsupported directory was marked successful")
+        require(error.get("error_code") == "tool_failed" and events[-1].get("outcome") == "partial",
+            "Mixed results must retain details and truthfully mark the unsupported directory partial")
+        require(len(cards) == 1 and directory_name not in outputs, "Unsupported directory produced a fabricated card")
+        node_count = None
+    else:
+        require(not error and not events[-1].get("outcome") and events[-1].get("status") == "COMPLETED",
+            "Both supported retrieval outcomes must complete")
+        require(directory_operation["state"] == "succeeded" and directory_name in outputs,
+            "Supported directory lacks its successful source receipt")
+        attempts = [attempt for attempt in directory_operation.get("attempts", []) if attempt.get("state") == "succeeded"]
+        require(len(attempts) == 1 and attempts[0]["result_id"] in delivered and len(cards) == len(delivered) == 2,
+            "Combined success must deliver two distinct detail/directory cards")
+        nodes = outputs[directory_name]
+        for _ in range(3):
+            if isinstance(nodes, list):
+                break
+            nodes = nodes.get("data") if isinstance(nodes, dict) else None
+        require(isinstance(nodes, list), "Directory source did not provide its documented node-list envelope")
+        node_count = len(nodes)
+        require((node_count > 0) if directory == "nonempty" else node_count == 0,
+            "Actual directory contents differ from the configured expectation")
+    return {"source_grounded": True, "same_cstr": True, "root_directory": True,
+        "detail_calls": 1, "directory_calls": 1, "delivered_cards": len(cards),
+        "directory_outcome": directory, "directory_node_count": node_count}
+
+
+def verify_combined_model_identifiers(rounds, reference):
+    """Diagnose native/plan drafts; dispatched calls and outcomes decide correctness."""
+    violations = []
+
+    def check(name, arguments, location):
+        if not isinstance(arguments, dict):
+            return
+        if name.endswith(("get_corpus_dataset_detail", "get_corpus_dataset_directory")):
+            if reference is not None and "cstr" in arguments and arguments["cstr"] != reference:
+                violations.append({**location, "field": "cstr", "issue": "ungrounded_dataset_identifier"})
+            if name.endswith("get_corpus_dataset_directory") and arguments.get("file_id") is not None:
+                violations.append({**location, "field": "file_id", "issue": "non_null_root_identifier"})
+    for round_index, round_ in enumerate(rounds, 1):
+        for call_index, call in enumerate(round_.get("tool_calls", []), 1):
+            arguments = call.get("public_arguments", {})
+            location = {"round": round_index, "call": call_index, "origin": "native"}
+            check(str(call.get("name", "")), arguments, location)
+            plan = arguments.get("plan") if isinstance(arguments, dict) else None
+            if isinstance(plan, dict):
+                for step_index, step in enumerate(plan.get("steps") or [], 1):
+                    if isinstance(step, dict):
+                        check(str(step.get("tool", "")), step.get("arguments", {}),
+                            {**location, "origin": "plan", "step": step_index})
+    return {"reference_known": reference is not None, "violation_count": len(violations),
+        "violations": violations[:32], "truncated": len(violations) > 32}
+
+
 def test_simulated_upstream_contract_and_artifacts(simulated_upstream):
     """Offline harness smoke: real MCP/storage/export, explicitly no real model."""
     async def run():
@@ -417,6 +543,29 @@ def test_simulated_upstream_contract_and_artifacts(simulated_upstream):
     asyncio.run(run())
 
 
+@pytest.mark.parametrize("directory_mode", ["nonempty", "empty", "unsupported"])
+def test_combined_fixture_detail_and_directory_mcp_outcomes(simulated_upstream, directory_mode):
+    """Fixture/MCP smoke only: responses are simulated; no model decisions exist."""
+    simulated_upstream.directory_mode = directory_mode
+
+    async def run():
+        async with http_mcp("/api/piflow/v1/mcp") as base:
+            async with Client(base + "/") as client:
+                detail = await client.call_tool("get_corpus_dataset_detail", {"cstr": STATION["cstr"]})
+                directory = await client.call_tool("get_corpus_dataset_directory", {"cstr": STATION["cstr"]}, raise_on_error=False)
+                require(detail.structured_content["cstr"] == STATION["cstr"], "Detail fixture identity changed")
+                if directory_mode == "unsupported":
+                    require(directory.is_error, "Unsupported source did not remain a real MCP error")
+                    require(any("不支持" in getattr(block, "text", "") for block in directory.content),
+                        "Unsupported source lost its explicit capability evidence")
+                else:
+                    require(not directory.is_error, "Supported directory became an MCP error")
+                    nodes = directory.structured_content["data"]
+                    require(isinstance(nodes, list) and bool(nodes) == (directory_mode == "nonempty"),
+                        "Directory fixture did not preserve its actual empty/nonempty outcome")
+    asyncio.run(run())
+
+
 @pytest.mark.skipif(os.getenv("DATASET_QA_LIVE_SEQUENCE") != "1", reason="Opt-in real model; simulated corpus/PubChem upstream")
 @pytest.mark.parametrize("scenario", list(SCENARIOS))
 def test_real_model_acceptance_sequence(engine, simulated_upstream, tmp_path, monkeypatch, scenario):
@@ -429,12 +578,28 @@ def test_real_model_acceptance_sequence(engine, simulated_upstream, tmp_path, mo
         pytest.fail("Configured model credentials are absent. Set the configured provider key, LLM_API_KEY, or API_KEY in the process environment.", pytrace=False)
     repeats = int(os.getenv("DATASET_QA_LIVE_REPEATS", "1"))
     require(1 <= repeats <= 20, "DATASET_QA_LIVE_REPEATS must be between 1 and 20")
-    reports, active = [], {}
+    reports, active, background = [], {}, []
+    foreground = foreground_marker(monkeypatch)
+    directory_mode = ("unsupported" if scenario.endswith("unsupported_directory") else
+        "empty" if scenario.endswith("empty_directory") else "nonempty")
+    simulated_upstream.directory_mode = directory_mode
     original_call, original_correct = ToolSession.call, Execution.correct
 
     async def capture_call(tools, alias, arguments, **kwargs):
-        active["calls"].append((tools.loaded[alias].name, deepcopy(arguments)))
-        return await original_call(tools, alias, arguments, **kwargs)
+        name, business_call = tools.loaded[alias].name, foreground.get()
+        if business_call:
+            active["calls"].append((name, deepcopy(arguments)))
+        else:
+            background.append(name)
+        try:
+            result = await original_call(tools, alias, arguments, **kwargs)
+        except Exception as exc:
+            if business_call:
+                active["failures"][name] = exc
+            raise
+        if business_call:
+            active["outputs"][name] = deepcopy(result[1].data)
+        return result
 
     def capture_correction(execution, error, limit, **kwargs):
         active["corrections"].append(error.code)
@@ -450,10 +615,11 @@ def test_real_model_acceptance_sequence(engine, simulated_upstream, tmp_path, mo
                 dialogue = ObservedDialogue()
                 service = DatasetQA(engine, dialogue, MCPGateway({"piflow-corpus": Server(base + "/")}))
                 sid = session(service, request=f"{scenario}-{repeat}")
-                previous_source = None
+                previous_source, previous_fields = None, None
                 try:
                     for label, utterance in SCENARIOS[scenario]:
-                        active.update(calls=[], corrections=[], correction_details=[])
+                        active.update(calls=[], corrections=[], correction_details=[], outputs={}, failures={})
+                        first_background = len(background)
                         started, first_round = time.perf_counter(), len(dialogue.rounds)
                         upstream_start = len(simulated_upstream.calls)
                         report = {"scenario": scenario, "repeat": repeat + 1, "turn": label, "model": "real configured Dialogue",
@@ -466,24 +632,53 @@ def test_real_model_acceptance_sequence(engine, simulated_upstream, tmp_path, mo
                             report["status"] = events[-1].get("status")
                             report["error_code"] = saved.get("error", {}).get("error_code")
                             report["operation_states"] = [item.get("state") for item in saved.get("operations", [])]
-                            require(events[-1].get("status") == "COMPLETED" and not events[-1].get("outcome") and not saved.get("error"), "Turn did not complete all requested work")
+                            if label != "detail_directory":
+                                require(events[-1].get("status") == "COMPLETED" and not events[-1].get("outcome") and not saved.get("error"), "Turn did not complete all requested work")
                             cards = result_cards(events)
                             report["result_types"] = [card.get("view_type") for card in cards]
                             names = [name for name, _ in active["calls"]]
-                            if label.startswith("compounds_"):
+                            if label == "detail_directory":
+                                report["combined"] = verify_combined_retrieval(active["calls"], saved, events,
+                                    STATION["cstr"], active["outputs"], active["failures"], directory=directory_mode)
+                            elif label == "compounds_query_only":
+                                require(names == ["query_pubchem_compounds"], "Query-only request must execute exactly one producer")
+                                require(report["operation_states"] == ["succeeded"], "Query-only outcome did not succeed")
+                                verify_query_arguments(active["calls"][0][1], 80, 1000)
+                                resources = [item for card in cards for item in card["data"]["items"]
+                                    if isinstance(item, dict) and item.get("resource", {}).get("format") == "jsonl"]
+                                require(len(resources) == 1, "Query-only request must deliver its original result resource")
+                                output = resources[0]
+                                require(output.get("record_count") == 1000 and output.get("target_met") is True,
+                                    "Query-only resource did not meet its requested quantity")
+                                require(output.get("query", {}).get("similarity_threshold") == 80,
+                                    "Query-only receipt lost its original criteria")
+                                previous_source = output["resource"]["source_ref"]
+                                previous_fields = output["resource"].get("fields")
+                                require(isinstance(previous_fields, list) and bool(previous_fields),
+                                    "Query-only receipt omitted the source field scope")
+                                report["artifact"] = {"format": "jsonl", "rows": 1000}
+                                report["constraints"] = {"threshold": 80, "limit": 1000, "filters_are_array": True}
+                            elif label == "compounds_export_only":
+                                require(names == ["export_dataset"], "Format-only follow-up must export without repeating retrieval")
+                                require(report["operation_states"] == ["succeeded"], "Format-only export did not succeed")
+                                require(previous_source is not None and active["calls"][0][1].get("source_ref") == previous_source,
+                                    "Format-only export did not reuse the actual preceding source resource")
+                                require(len(simulated_upstream.calls) == upstream_start,
+                                    "Format-only export unexpectedly contacted the upstream retrieval backend")
+                                outputs = [item for card in cards for item in card["data"]["items"]
+                                    if isinstance(item, dict) and item.get("resource", {}).get("format") == "csv"]
+                                require(len(outputs) == 1, "Expected one delivered format-only CSV result")
+                                require(outputs[0].get("resource", {}).get("fields") == previous_fields,
+                                    "Format-only export changed the existing field scope")
+                                report["artifact"] = await verify_csv(outputs[0], base, 80, 1000)
+                                report["reused_original_source"] = True
+                            elif label.startswith("compounds_"):
                                 threshold, limit = (80, 1000) if label == "compounds_80_1000" else (90, 100)
                                 require(names == ["query_pubchem_compounds", "export_dataset"], "Expected exactly one query and one export for this request")
                                 require(report["operation_states"] == ["succeeded", "succeeded"], "Expected two successful compound operations")
                                 acceptance = saved.get("plan", {}).get("acceptance", {})
                                 require(bool(acceptance) and all(item["state"] == "accepted" for item in acceptance.values()), "Compound outcomes were not all accepted")
-                                args = active["calls"][0][1]
-                                expected = query_arguments(threshold, limit)
-                                for key in ("smiles", "similarity_threshold", "limit"):
-                                    require(args.get(key) == expected[key] and type(args.get(key)) is type(expected[key]), "Query value/type mismatch: " + key)
-                                require(isinstance(args.get("filters"), list), "filters must be an actual JSON array")
-                                rules = {item["field"]: item for item in args["filters"]}
-                                require(len(args["filters"]) == 2 and rules == {item["field"]: item for item in expected["filters"]}, "Property filters differ from user constraints")
-                                require(all(type(item[key]) in (int, float) for item in rules.values() for key in ("minimum", "maximum")), "Filter bounds must have JSON number types")
+                                verify_query_arguments(active["calls"][0][1], threshold, limit)
                                 outputs = [item for card in cards for item in card["data"]["items"]
                                     if isinstance(item, dict) and item.get("resource", {}).get("format") == "csv"]
                                 require(len(outputs) == 1, "Expected one delivered CSV result")
@@ -514,11 +709,15 @@ def test_real_model_acceptance_sequence(engine, simulated_upstream, tmp_path, mo
                                 report["failure"] = str(exc)
                             raise
                         finally:
+                            if label == "detail_directory":
+                                report["draft_identifier_diagnostics"] = verify_combined_model_identifiers(
+                                    dialogue.rounds[first_round:], STATION["cstr"])
                             report.update(seconds=round(time.perf_counter() - started, 3),
                                 model_calls=len(dialogue.rounds) - first_round,
                                 model_trace=dialogue.rounds[first_round:], corrections=list(active["corrections"]),
                                 correction_details=list(active["correction_details"]),
                                 correction_count=len(active["corrections"]), mcp_call_count=len(active["calls"]),
+                                background_mcp_call_count=len(background) - first_background,
                                 simulated_upstream_calls=simulated_upstream.calls[upstream_start:],
                                 mcp_calls=[{"name": name, "argument_types": type_tree(args),
                                     "public_arguments": safe_arguments(args)} for name, args in active["calls"]])

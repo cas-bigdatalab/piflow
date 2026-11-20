@@ -4,6 +4,7 @@ import io
 import csv
 import hashlib
 import hmac
+import ipaddress
 import math
 import logging
 import os
@@ -241,16 +242,15 @@ def list_dataset_details(
         filters=effective_filters,
     )
     dataset_items = _extract_page_items(payload, entity_name="dataset")
-    connector_names = {
-        connector_name
+    connector_refs = [
+        connector_ref
         for item in dataset_items
         if isinstance(item, dict)
-        for connector_name in _extract_dataset_connector_names(item)
-        if connector_name
-    }
-    connector_lookup = _add_connector_resources_by_name(
+        for connector_ref in _extract_dataset_connectors(item)
+    ]
+    connector_lookup = _add_connector_resources(
         connector_snapshot,
-        connector_names=connector_names,
+        connector_refs=connector_refs,
     )
 
     grouped_dataset_details: dict[str, dict[str, Any]] = {}
@@ -348,12 +348,17 @@ def get_available_dataset_total() -> int:
     )["total"]
 
     disabled_datasets_total = 0
+    # Upstream filters identify sources by name, so a shared enabled name must
+    # not be subtracted merely because another connector with that name is off.
+    counted_names = {str(connector.get("name", "") or "").strip()
+        for connector in connector_snapshot.values() if _is_connector_enabled(connector)}
     for connector in connector_snapshot.values():
         if _is_connector_enabled(connector):
             continue
         connector_name = str(connector.get("name", "") or "").strip()
-        if not connector_name:
+        if not connector_name or connector_name in counted_names:
             continue
+        counted_names.add(connector_name)
         payload = _fetch_dataset_page(
             page_num=1,
             page_size=1,
@@ -374,14 +379,9 @@ def get_dataset_detail(dataset_id: str) -> dict[str, Any]:
     if not normalized_dataset_id:
         raise ValueError("dataset_id is required")
     dataset_detail = _normalize_dataset_detail(_fetch_dataset_detail(normalized_dataset_id))
-    connector_names = {
-        connector_name
-        for connector_name in _extract_dataset_connector_names(dataset_detail.get("raw", {}))
-        if connector_name
-    }
     connector_lookup = (
-        _fetch_connector_details_with_resources_by_name(connector_names)
-        if connector_names
+        _add_connector_resources(_fetch_all_connector_details(), connector_refs=dataset_detail["connectors"])
+        if dataset_detail["connectors"]
         else {}
     )
     connectors = _resolve_dataset_connectors(dataset_detail["connectors"], connector_lookup)
@@ -1540,6 +1540,7 @@ def _normalize_connector_detail(source: dict[str, Any]) -> dict[str, Any]:
     service_url = _first_non_empty_string(
         source.get("serviceUrl"),
         source.get("serverUrl"),
+        preserve_controls=True,
     )
     protocol = _first_non_empty_string(
         source.get("protocol"),
@@ -1556,14 +1557,13 @@ def _normalize_connector_detail(source: dict[str, Any]) -> dict[str, Any]:
     host = _first_non_empty_string(
         source.get("host"),
         source.get("ip"),
+        preserve_controls=True,
     )
     remote_grpc_target = _first_non_empty_string(
         source.get("remoteGrpcTarget"),
         source.get("grpcTarget"),
     )
-    grpc_port = _first_non_empty_string(
-        source.get("grpcPort"),
-    )
+    grpc_port = "" if source.get("grpcPort") is None else str(source["grpcPort"]).strip(" ")
     sync = _first_non_empty_string(
         source.get("sync"),
         source.get("syncAt"),
@@ -1664,6 +1664,7 @@ def _normalize_dataset_connector_entry(source: Any) -> dict[str, str]:
             "connectorId": source.strip(),
             "fromName": "",
             "name": source.strip(),
+            "_untyped": True,
         }
     if not isinstance(source, dict):
         return {"connectorId": "", "fromName": "", "name": ""}
@@ -1696,17 +1697,37 @@ def _normalize_dataset_connector_entry(source: Any) -> dict[str, str]:
     }
 
 
+def _find_dataset_connector(
+    reference: dict[str, Any], connector_lookup: dict[Any, dict[str, Any]],
+) -> dict[str, Any] | None:
+    """IDs are exact; an untyped string may also denote one unique name."""
+    candidates = [
+        {**entry["connector"], "resource": entry.get("resource")}
+        if "connector" in entry else entry
+        for entry in connector_lookup.values()
+    ]
+    identifier = str(reference.get("connectorId", "") or "").strip()
+    if identifier:
+        matches = [entry for entry in candidates if entry.get("connectorId") == identifier]
+        if len(matches) == 1:
+            return matches[0]
+        if matches or not reference.get("_untyped"):
+            return None
+    name = _normalize_lookup_key(reference.get("name"))
+    matches = [entry for entry in candidates if name and _normalize_lookup_key(entry.get("name")) == name]
+    return matches[0] if len(matches) == 1 else None
+
+
 def _resolve_dataset_connectors(
     connectors: list[dict[str, str]],
     connector_lookup: dict[str, dict[str, Any]],
 ) -> list[dict[str, str]]:
     resolved: list[dict[str, str]] = []
     for connector_ref in connectors:
-        connector_name_key = _normalize_lookup_key(connector_ref.get("name"))
-        connector = connector_lookup.get(connector_name_key) if connector_name_key else None
+        connector = _find_dataset_connector(connector_ref, connector_lookup)
         connector_id = _first_non_empty_string(
-            connector_ref.get("connectorId"),
             connector.get("connectorId") if connector else "",
+            connector_ref.get("connectorId"),
         )
         connector_name = _first_non_empty_string(
             _extract_nested_text(connector, "name") if connector else "",
@@ -1730,7 +1751,8 @@ def _resolve_dataset_connectors(
         latency_ms = resource.get("latency_ms") if isinstance(resource, dict) else None
         if latency_ms is not None:
             resolved_connector["latency_ms"] = latency_ms
-        resolved.append(resolved_connector)
+        if not any(_dataset_connector_refs_match(existing, resolved_connector) for existing in resolved):
+            resolved.append(resolved_connector)
     return resolved
 
 
@@ -1745,6 +1767,8 @@ def _merge_dataset_connectors(
             "fromName": str(connector.get("fromName", "") or "").strip(),
             "name": str(connector.get("name", "") or "").strip(),
         }
+        if connector.get("_untyped"):
+            normalized["_untyped"] = True
         if not _dataset_connector_ref_has_value(normalized):
             continue
         for index, existing in enumerate(merged):
@@ -1837,20 +1861,19 @@ def _fetch_connector_details_by_connector_id(connector_ids: set[str]) -> dict[st
     return lookup
 
 
-def _fetch_all_connector_details() -> dict[str, dict[str, Any]]:
-    """Refresh and return the complete connector snapshot, indexed by name."""
-    lookup: dict[str, dict[str, Any]] = {}
+def _fetch_all_connector_details() -> dict[Any, dict[str, Any]]:
+    """Keep canonical IDs and ID-less rows so names cannot hide ambiguity."""
+    lookup: dict[Any, dict[str, Any]] = {}
     page_num = 1
     page_size = 100
 
     while True:
         payload = _fetch_connector_page(page_num=page_num, page_size=page_size)
         items = _extract_connector_page_items(payload)
-        for item in items:
+        for index, item in enumerate(items):
             connector = _normalize_connector_detail(item)
-            connector_name_key = _normalize_lookup_key(connector.get("name"))
-            if connector_name_key:
-                lookup[connector_name_key] = connector
+            key = connector.get("connectorId") or (page_num, index)
+            lookup[key] = connector
 
         if len(items) < page_size:
             break
@@ -1919,23 +1942,23 @@ def _normalize_dataset_source_filter(filters: dict[str, Any] | None) -> dict[str
     return normalized_filters
 
 
-def _add_connector_resources_by_name(
-    connector_snapshot: dict[str, dict[str, Any]],
+def _add_connector_resources(
+    connector_snapshot: dict[Any, dict[str, Any]],
     *,
-    connector_names: set[str],
-) -> dict[str, dict[str, Any]]:
-    """Enrich referenced snapshot entries without another connector query."""
-    lookup: dict[str, dict[str, Any]] = {}
-    for connector_name in connector_names:
-        connector_name_key = _normalize_lookup_key(connector_name)
-        connector = connector_snapshot.get(connector_name_key)
-        if connector is None:
+    connector_refs: list[dict[str, Any]],
+) -> dict[Any, dict[str, Any]]:
+    """Enrich the flat complete snapshot without another connector query."""
+    lookup = dict(connector_snapshot)
+    selected = {id(connector) for reference in connector_refs
+        if (connector := _find_dataset_connector(reference, connector_snapshot)) is not None}
+    for key, connector in connector_snapshot.items():
+        if id(connector) not in selected:
             continue
         remote_grpc_target, resource = _resolve_remote_resource(
             connector,
             grpc_port=DEFAULT_REMOTE_GRPC_PORT,
         )
-        lookup[connector_name_key] = {
+        lookup[key] = {
             **connector,
             "remote_grpc_target": remote_grpc_target,
             "resource": resource,
@@ -1972,33 +1995,11 @@ def _fetch_connector_details_with_resources_by_connector_id(
 
 
 def _fetch_connector_details_by_name(connector_names: set[str]) -> dict[str, dict[str, Any]]:
-    remaining_names = {
-        _normalize_lookup_key(connector_name)
-        for connector_name in connector_names
-        if _normalize_lookup_key(connector_name)
-    }
-    if not remaining_names:
+    if not connector_names:
         return {}
-
-    lookup: dict[str, dict[str, Any]] = {}
-    page_num = 1
-    page_size = 100
-
-    while remaining_names:
-        payload = _fetch_connector_page(page_num=page_num, page_size=page_size)
-        items = _extract_connector_page_items(payload)
-        for item in items:
-            connector = _normalize_connector_detail(item)
-            connector_name_key = _normalize_lookup_key(connector.get("name"))
-            if connector_name_key and connector_name_key in remaining_names:
-                lookup[connector_name_key] = connector
-                remaining_names.remove(connector_name_key)
-
-        if len(items) < page_size:
-            break
-        page_num += 1
-
-    return lookup
+    snapshot = _fetch_all_connector_details()
+    return {_normalize_lookup_key(name): connector for name in connector_names
+        if (connector := _find_dataset_connector({"name": name}, snapshot)) is not None}
 
 
 def _fetch_connector_details_with_resources_by_name(
@@ -2141,10 +2142,10 @@ def _dataset_connector_ref_has_value(connector: dict[str, str]) -> bool:
 
 
 def _dataset_connector_refs_match(left: dict[str, str], right: dict[str, str]) -> bool:
-    left_id = _normalize_lookup_key(left.get("connectorId"))
-    right_id = _normalize_lookup_key(right.get("connectorId"))
-    if left_id and right_id and left_id == right_id:
-        return True
+    left_id = str(left.get("connectorId", "") or "").strip()
+    right_id = str(right.get("connectorId", "") or "").strip()
+    if left_id or right_id:
+        return bool(left_id and right_id and left_id == right_id)
 
     left_name = _normalize_lookup_key(left.get("name"))
     right_name = _normalize_lookup_key(right.get("name"))
@@ -2152,11 +2153,14 @@ def _dataset_connector_refs_match(left: dict[str, str], right: dict[str, str]) -
 
 
 def _merge_dataset_connector_ref(left: dict[str, str], right: dict[str, str]) -> dict[str, str]:
-    return {
+    merged = {
         "connectorId": _first_non_empty_string(left.get("connectorId"), right.get("connectorId")),
         "fromName": _first_non_empty_string(left.get("fromName"), right.get("fromName")),
         "name": _first_non_empty_string(left.get("name"), right.get("name")),
     }
+    if left.get("_untyped") and right.get("_untyped"):
+        merged["_untyped"] = True
+    return merged
 
 
 def _extract_nested_text(source: dict[str, Any], key: str) -> str:
@@ -2222,9 +2226,9 @@ def _build_remote_grpc_target(connector: dict[str, Any], *, grpc_port: int) -> s
     if explicit_target:
         return explicit_target
 
-    host = str(connector.get("host", "") or "").strip()
+    host = str(connector.get("host", "") or "")
     if not host:
-        service_url = str(connector.get("serviceUrl", "") or "").strip()
+        service_url = str(connector.get("serviceUrl", "") or "")
         host = _extract_host(service_url)
     if not host:
         connector_id = str(connector.get("connectorId", "") or "").strip()
@@ -2232,27 +2236,72 @@ def _build_remote_grpc_target(connector: dict[str, Any], *, grpc_port: int) -> s
             f"connector detail for connectorId={connector_id or '<unknown>'} does not contain host/serviceUrl/remoteGrpcTarget"
         )
 
-    raw_grpc_port = str(connector.get("grpcPort", "") or "").strip()
-    resolved_port = grpc_port
-    if raw_grpc_port:
-        try:
-            resolved_port = int(raw_grpc_port)
-        except ValueError as exc:
-            raise ValueError(f"invalid grpcPort in connector detail: {raw_grpc_port}") from exc
-        if resolved_port <= 0:
-            raise ValueError(f"invalid grpcPort in connector detail: {raw_grpc_port}")
+    host = _normalize_remote_host(host)
+    raw_grpc_port = connector.get("grpcPort")
+    port_missing = raw_grpc_port is None or isinstance(raw_grpc_port, str) and not raw_grpc_port.strip(" ")
+    resolved_port = _validate_remote_port(grpc_port if port_missing else raw_grpc_port)
+    return f"{'[' + host + ']' if ':' in host else host}:{resolved_port}"
 
-    return f"{host}:{resolved_port}"
+
+def _validate_remote_port(value: Any) -> int:
+    if isinstance(value, str) and any(ord(char) < 32 or ord(char) == 127 for char in value):
+        raise ValueError("remote port contains control characters")
+    if (type(value) is not int and not (isinstance(value, str) and re.fullmatch(r"[0-9]+", value.strip()))):
+        raise ValueError("remote port must be an integer")
+    port = int(value)
+    if not 1 <= port <= 65535:
+        raise ValueError("remote port must be between 1 and 65535")
+    return port
+
+
+def _normalize_remote_host(value: str) -> str:
+    if any(ord(char) < 32 or ord(char) == 127 for char in value):
+        raise ValueError("remote host contains control characters")
+    host = value.strip()
+    if not host or any(char.isspace() for char in host):
+        raise ValueError("remote host is empty or contains whitespace")
+    if host.startswith("[") or host.endswith("]"):
+        if not (host.startswith("[") and host.endswith("]")):
+            raise ValueError("invalid bracketed remote host")
+        return str(ipaddress.IPv6Address(host[1:-1]))
+    if ":" in host:
+        return str(ipaddress.IPv6Address(host))
+    if "." in host and re.fullmatch(r"[0-9.]+", host):
+        return str(ipaddress.IPv4Address(host))
+    try:
+        host = host.encode("idna").decode("ascii")
+    except UnicodeError as exc:
+        raise ValueError("invalid remote hostname") from exc
+    labels = host[:-1].split(".") if host.endswith(".") else host.split(".")
+    if len(host.rstrip(".")) > 253 or any(
+            not re.fullmatch(r"[A-Za-z0-9_](?:[A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?", label)
+            for label in labels):
+        raise ValueError("invalid remote hostname")
+    return host
 
 
 def _extract_host(service_url: str) -> str:
+    if any(ord(char) < 32 or ord(char) == 127 for char in service_url):
+        raise ValueError("service URL contains control characters")
     normalized = str(service_url or "").strip()
     if not normalized:
         return ""
+    if any(char.isspace() for char in normalized):
+        raise ValueError("service URL contains whitespace")
+    if ("://" not in normalized and not normalized.startswith("[")
+            and normalized.count(":") > 1 and "/" not in normalized):
+        return _normalize_remote_host(normalized)
     if "://" not in normalized:
         normalized = f"http://{normalized}"
     parsed = urlparse(normalized)
-    return str(parsed.hostname or "").strip()
+    authority = parsed.netloc.rsplit("@", 1)[-1]
+    if authority.startswith("[") and authority.partition("]")[2] and not authority.partition("]")[2].startswith(":"):
+        raise ValueError("invalid bracketed service authority")
+    if parsed.port is not None:
+        _validate_remote_port(parsed.port)
+    elif parsed.netloc.endswith(":"):
+        raise ValueError("service URL has an empty port")
+    return _normalize_remote_host(str(parsed.hostname or ""))
 
 
 def _extract_page_items(payload: dict[str, Any], *, entity_name: str) -> list[dict[str, Any]]:
@@ -2326,9 +2375,9 @@ def _safe_positive_int(value: Any, *, default: int, allow_zero: bool = False) ->
     return resolved
 
 
-def _first_non_empty_string(*values: Any) -> str:
+def _first_non_empty_string(*values: Any, preserve_controls: bool = False) -> str:
     for value in values:
-        text = str(value or "").strip()
+        text = str(value or "").strip(" " if preserve_controls else None)
         if text:
             return text
     return ""

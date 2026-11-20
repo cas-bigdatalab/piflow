@@ -13,7 +13,7 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy import Column, Float, JSON, MetaData, String, Table, Text, and_, cast, func, or_, select
 
 from .contracts import QAError
-from .context import project
+from .context import project, same_identity
 from .references import at_path
 from .artifact_storage import canonical_numbers
 
@@ -55,6 +55,31 @@ def execution_metadata(user, request_id, arguments, seconds, *, secret=None):
 
 def _json(value):
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False)
+
+
+def validate_source_requirements(source, requirements, *, required):
+    """Check explicit current constraints against the owned source, never user prose."""
+    detail = {"origin": "source_requirements", "dispatched": False,
+        "guidance": "For reuse declare this turn's additional source_requirements: criteria parameters and fields, or null to preserve the selected data. "
+            "Keep every explicitly requested change; never remove a declared constraint to pass validation. "
+            "Export preserves records. Incompatible or unknown source metadata needs the source producer or a supported transformation before export."}
+    if requirements is None:
+        if not required:
+            return
+        raise QAError("invalid_parameters", "复用已有文件前须明确本轮数据条件和字段范围", detail=detail)
+    expected = requirements.model_dump() if isinstance(requirements, BaseModel) else requirements
+    actual = {"criteria": source.get("provenance", {}).get("query"),
+        "fields": source["resource"].get("fields")}
+    mismatches = []
+    if expected["criteria"] and (not isinstance(actual["criteria"], dict) or any(
+            key not in actual["criteria"] or not same_identity(value, actual["criteria"][key])
+            for key, value in expected["criteria"].items())):
+        mismatches.append("criteria")
+    if expected["fields"] is not None and not same_identity(expected["fields"], actual["fields"]):
+        mismatches.append("fields")
+    if mismatches:
+        raise QAError("invalid_parameters", "已有文件不符合本轮数据要求，导出不能修改数据选择", detail={
+            **detail, "fields": mismatches, "source_requirements": deepcopy(expected)})
 
 
 class Artifacts:
@@ -150,13 +175,25 @@ class Artifacts:
                 return {}
             rows = conn.execute(select(self.table).where(self.table.c.user_id == user,
                 self.table.c.id.in_(seen))).mappings().all()
-        manifests = {row["id"]: json.loads(row["payload"]) for row in rows}
+            manifests = {row["id"]: json.loads(row["payload"]) for row in rows}
+            parent_keys = {handle: sha256(_json([manifest["server"], parent]).encode()).hexdigest()
+                for handle, manifest in manifests.items()
+                if isinstance(parent := manifest.get("provenance", {}).get("parent_source_ref"), str) and parent}
+            parents = {}
+            if parent_keys:
+                parent_rows = conn.execute(select(self.table.c.source_key, self.table.c.payload)
+                    .where(self.table.c.user_id == user, self.table.c.source_key.in_(set(parent_keys.values())))
+                    .order_by(self.table.c.updated_at.desc())).all()
+                for key, raw in parent_rows:
+                    parents.setdefault(key, json.loads(raw))
         result = {"items": [], "total": len(candidates), "guidance": (
-            "Owned files from these session results. Explicit selections/current requirements take precedence. "
-            "For reuse set __qa_object or plan/goal.object to a handle; declare operation/output_format in the same task/goal/step. "
-            "export preserves records; a filter with CSV output is not pure export. Do not requery to change format. "
-            "Refs, URLs and workspace paths are not interchangeable; use declared bindings, never guessed paths. "
-            "Use find_artifacts for omitted/older files; global recent files do not establish this turn's source.")}
+            "Compare current requirements with saved criteria, count and fields before reuse. "
+            "Reuse compatible records for format-only export, which preserves selection, count and field scope. "
+            "Changed requirements need a compatible source result or supported transformation before export; "
+            "use the source producer when new retrieval is needed. Never claim export applied new criteria. "
+            "Set __qa_object or plan/goal.object to a supplied handle and declare operation/output_format. "
+            "Read omitted metadata with read_result using this result_id and its *_path; omission is not compatibility. "
+            "Use find_artifacts for older files. Current selections prevail; refs, URLs and paths are not interchangeable.")}
         unavailable = sum(handle not in manifests for _, _, handle in candidates)
         if unavailable:
             result["unavailable"] = unavailable
@@ -164,24 +201,45 @@ class Artifacts:
             result.pop("guidance")
         # Keep identities complete. Names are optional, and record bodies and
         # signed source references never enter this compact context manifest.
-        names = []
+        metadata = []
         for display_id, result_id, handle in candidates:
             if handle not in manifests:
                 continue
             manifest = manifests[handle]
             resource = manifest["resource"]
             entry = {"handle": handle, "result_id": result_id, "server": manifest["server"],
-                "kind": "record_resource", "format": resource["format"], "record_count": resource["record_count"]}
+                "tool": manifest["tool"], "kind": "record_resource",
+                "format": resource["format"], "record_count": resource["record_count"]}
+            if parent := parents.get(parent_keys.get(handle)):
+                entry["source_producer"] = {"server": parent["server"], "tool": parent["tool"]}
+            query = manifest.get("provenance", {}).get("query")
+            if query is not None:
+                entry.update(criteria_omitted=True, criteria_path="/query")
+            if "fields" in resource:
+                entry.update(fields_omitted=True, fields_path=manifest["path"].rstrip("/")+"/fields")
             if display_id != result_id:
                 entry["display_result_id"] = display_id
             proposal = {**result, "items": [*result["items"], entry], "truncated": True}
             if len(_json(proposal)) > limit:
                 break
             result["items"].append(entry)
-            names.append(resource.get("name"))
+            metadata.append((query, resource.get("fields"), resource.get("name")))
         if len(result["items"]) + unavailable < result["total"]:
             result["truncated"] = True
-        for entry, name in zip(result["items"], names):
+        for entry, (query, fields, name) in zip(result["items"], metadata):
+            for key, value in (("criteria", query), ("fields", fields)):
+                if value is None:
+                    continue
+                complete, cut = project(value, len(_json(value)))
+                if cut or _json(complete) != _json(value):
+                    continue  # Sanitization/size must not turn a partial condition into a complete one.
+                previous = deepcopy(entry)
+                entry[key] = complete
+                entry.pop(key+"_omitted", None)
+                entry.pop(key+"_path", None)
+                if len(_json(result)) > limit:
+                    entry.clear()
+                    entry.update(previous)
             if name:
                 entry["name"] = name
                 if len(_json(result)) > limit:
@@ -197,8 +255,12 @@ class Artifacts:
         result = {**(view or {}), "handle": row["id"], "source": payload["server"],
             "updated_at": datetime.fromtimestamp(row["updated_at"], timezone.utc).isoformat()}
         if criteria and (query := payload.get("provenance", {}).get("query")):
-            result["criteria"], clipped = project(query, 400)
-            cut |= clipped
+            complete, clipped = project(query, 400)
+            if not clipped and _json(complete) == _json(query):
+                result["criteria"] = complete
+            else:
+                result["criteria_omitted"] = True
+                cut = True
         if cut:
             result["truncated"] = True
         return result

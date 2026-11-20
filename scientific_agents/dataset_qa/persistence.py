@@ -430,6 +430,20 @@ class Store:
             self._session(conn, user, sid)
             return self._cards(conn, sid, result_ids)
 
+    def directory_receipts(self, user, sid, scope, *, before=None, limit=8):
+        """Page immutable directory evidence under the session ownership boundary."""
+        with self.transaction() as conn:
+            self._session(conn, user, sid)
+            query = select(self.items.c.id, self.items.c.payload).where(
+                self.items.c.session_id==sid, self.items.c.kind=="TOOL_RESULT",
+                self.items.c.result_id.is_not(None),
+                self.items.c.payload.contains('"directory_receipt"', autoescape=True),
+                self.items.c.payload.contains(dumps(scope), autoescape=True))
+            if before is not None:
+                query = query.where(self.items.c.id<before)
+            rows = conn.execute(query.order_by(self.items.c.id.desc()).limit(limit)).all()
+            return [json.loads(row.payload) for row in rows], rows[-1].id if len(rows)==limit else None
+
     def latest_display(self, user, sid):
         with self.transaction() as conn:
             self._session(conn, user, sid)

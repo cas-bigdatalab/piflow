@@ -199,7 +199,7 @@ def scoped_preview(handles, cards, limit=1800):
     return result
 
 
-def identifier_in_request(value, message, field=""):
+def identifier_in_request(value, message, field="", *, labelled_only=False):
     """Check a complete input identity, never an arbitrary word substring.
 
     This proves lexical provenance, not user intent. The semantic decision must
@@ -212,10 +212,12 @@ def identifier_in_request(value, message, field=""):
         return False
     # Known field labels are evidence of an assignment even without whitespace.
     if field:
-        labelled = re.compile(r"(?<![A-Za-z0-9_])"+re.escape(field)+r"\s*[=:：]\s*[\"']?"+re.escape(token), re.IGNORECASE)
+        labelled = re.compile(r"(?<![A-Za-z0-9_])[\"']?"+re.escape(field)+r"[\"']?\s*[=:：]\s*[\"']?"+re.escape(token), re.IGNORECASE)
         for match in labelled.finditer(message):
             if match.end()==len(message) or not _identity_character(message[match.end()], token):
                 return True
+    if labelled_only:
+        return False
     for match in re.finditer(re.escape(token), message):
         before = message[match.start()-1] if match.start() else ""
         after = message[match.end()] if match.end()<len(message) else ""

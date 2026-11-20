@@ -349,6 +349,85 @@ def compact_delivery_status(facts):
     return rows
 
 
+def empty_delivery_summary(operations, facts, cards, delivered):
+    """Acknowledge completed artifact delivery using full, declared collections.
+
+    Empty previews, optional nested lists and unknown receipts establish no
+    absence. Interpretation and bounded-search outcomes retain their own path.
+    """
+    from .contracts import QAError
+    from .references import at_path
+
+    required = operations.required
+    states = {item["goal"]: item for item in facts}
+    if not required or any(item["output"] != "result" for item in required):
+        return ""
+    if any(not (state := states.get(item["id"])) or not state["complete"] or not state["delivered"]
+            for item in required):
+        return ""
+    by_id, delivered = {card["result_id"]: card for card in cards}, set(delivered)
+    labels, empty = [], []
+    for item in required:
+        label = " ".join(states[item["id"]]["description"].split()).rstrip("。.;；")
+        labels.append(label)
+        receipts = [attempt for attempt in item["attempts"] if attempt["state"] == "succeeded"
+            and attempt.get("result_id")]
+        if not receipts or any(attempt["result_id"] not in delivered for attempt in receipts):
+            return ""  # A partially displayed goal is not a complete delivery acknowledgement.
+        if item.get("search"):
+            continue
+        counts = []
+        for attempt in receipts:
+            card = by_id.get(attempt["result_id"], {})
+            presentation = attempt.get("presentation") or {}
+            count = None
+            if presentation.get("kind") == "collection" and isinstance(presentation.get("path"), str):
+                try:
+                    rows = at_path(card.get("data"), presentation["path"])
+                    if isinstance(rows, list):
+                        count = len(rows)
+                except QAError:
+                    pass
+            else:
+                value = card.get("directory_receipt", {}).get("entry_count")
+                if type(value) is int and value >= 0:
+                    count = value
+            counts.append(count)
+        if counts and all(count == 0 for count in counts):
+            empty.append(label)
+    if not empty:
+        return ""
+    return "\n\n".join(["已为您提供："+"；".join(dict.fromkeys(labels))+"。",
+        *(label+"：本次查询未返回条目。" for label in dict.fromkeys(empty))])
+
+
+def bounded_delivery_summary(operations, facts, cards, delivered, evidence):
+    """Confirm complete result delivery without interpreting an incomplete view.
+
+    An explicit textual interpretation, search judgement or partial outcome
+    still needs its normal answer path. This never declares unseen facts.
+    """
+    required = operations.required
+    if (not required or any(item["output"] != "result" for item in operations.items)
+            or any(item.get("search") or not item.get("planned") or item.get("inferred") for item in required)):
+        return ""
+    states = {item["goal"]: item for item in facts}
+    available, delivered = {card["result_id"] for card in cards}, set(delivered)
+    for item in required:
+        state = states.get(item["id"])
+        receipts = operations.result_ids(item)
+        if (not state or not state["complete"] or not state["delivered"] or not receipts
+                or not set(receipts) <= available & delivered):
+            return ""
+    claimed = {rid for item in required for rid in operations.result_ids(item)}
+    if any(item.get("inferred") and set(operations.result_ids(item)) - claimed for item in operations.items):
+        return ""
+    if not (evidence.get("final_delivery_next_offset") is not None
+            or any(entry.get("model_view_truncated") for entry in evidence.get("final_delivery", []))):
+        return ""
+    return delivery_summary([states[item["id"]] for item in required])
+
+
 def delivery_summary(facts):
     """Describe confirmed content without diagnoses or invented next actions."""
     shown, evidence, outstanding = [], [], []

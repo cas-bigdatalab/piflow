@@ -172,3 +172,20 @@ def test_final_multi_artifact_envelope_preserves_whole_identities_or_explicit_pa
         assert "delivery_next_offset" not in result
     for key in ("final_delivery", "answer_evidence"):
         assert all(entry["result_id"] in {card["result_id"] for card in cards} for entry in result.get(key, []))
+
+
+@pytest.mark.parametrize("size", [1, 200])
+def test_final_writer_excerpt_flag_does_not_change_delivered_or_upstream_data(size):
+    card = {"result_id": "saved-result", "view_type": "table", "title": "Records",
+        "data": {"truncated": False, "items": [{"name": "entry-"+str(i)} for i in range(size)]}}
+    original = deepcopy(card)
+    result = final_evidence_view([card], [card], Operations(), 2000)
+    assert len(encode(result)) <= 2000 and card == original
+    assert result["delivery_manifest"][0]["result_id"] == card["result_id"]
+    for group in ("final_delivery", "answer_evidence"):
+        entry, = result[group]
+        assert "truncated" not in entry
+        assert entry["model_view_truncated"] is (size > 1)
+        assert entry["data"]["truncated"] is False
+        for offset, row in enumerate(entry["data"]["items"]):
+            assert all(value == card["data"]["items"][offset][key] for key, value in row.items())

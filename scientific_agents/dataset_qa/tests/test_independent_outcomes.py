@@ -107,7 +107,18 @@ def test_late_outcomes_confirm_both_receipts_without_another_mcp_call(engine, re
         try:
             await seed(service, dialogue, sid)
             confirmation = confirm_receipts if repair == "confirmation" else batch(native("inspect", True), native("preview", True))
-            reads = [native("inspect"), native("preview")] if sequential else [batch(native("inspect"), native("preview"))]
+            def after_scope_rejection(messages, definitions):
+                feedback = json.loads(messages[-1].content)["runtime_feedback"]
+                assert feedback["detail"]["decision"] == "declare_outcomes"
+                assert len(backend.calls) == 1  # No ambiguous parallel reads ran.
+                assert not json.loads(messages[1].content).get("operations", {}).get("items")
+                return native("inspect")(messages, definitions)
+
+            # Single-call evidence gathering still supports late declarations.
+            # An undeclared parallel batch must first be corrected without
+            # inventing required goals or discarding saved sequential receipts.
+            reads = [native("inspect"), native("preview")] if sequential else [
+                batch(native("inspect"), native("preview")), after_scope_rejection, native("preview")]
             dialogue.responses = [*reads,
                 action("deliver_results"), outcomes(), confirmation, text("两项内容已整理好。")]
             events = await collect(service, sid, "查看详情和目录结构", "late-outcomes")
@@ -242,7 +253,11 @@ def test_real_corpus_mcp_contracts_preserve_two_cards_and_the_directory_table(en
                 text("详情和目录已整理好。" if nodes else "详情已整理好，本次目录返回的条目为 0。")]
             events = await collect(service, sid, "看下这个数据集的详情以及目录结构", "two-corpus-reads")
             assert_completed(service, sid, events[-1])
-            assert len(dialogue.inputs) - baseline == 2
+            assert len(dialogue.inputs) - baseline == (1 if empty_directory else 2)
+            if empty_directory:
+                assert dialogue.inputs[-1][1]  # No final model call for a factual empty-result acknowledgement.
+                reply = "".join(event.get("text", "") for event in events if event["type"] == "message")
+                assert reply == "已为您提供：数据集详情；目录结构。\n\n目录结构：本次查询未返回条目。"
             assert len(calls) == 3
             assert {value[0] for value in calls} == {"search", "detail", "directory"}
             cards = result_cards(events)

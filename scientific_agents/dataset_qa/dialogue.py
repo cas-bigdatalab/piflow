@@ -210,9 +210,22 @@ def builtin_definitions(planning=False, *, artifacts=False, agent_profile=DATASE
     definitions = deepcopy(definitions)
     schema = next(item["function"]["parameters"] for item in definitions if item["function"]["name"] == "remember")
     schema["properties"].pop("plan", None)
-    # Goal is the only referenced legacy memory contract; plan types are loaded
-    # together, once, when understanding the request actually requires them.
-    schema["$defs"] = {key: value for key, value in schema.get("$defs", {}).items() if key == "Goal"}
+    # Keep the reachable contracts, including nested goal intent, while leaving
+    # plan-only types unloaded. Every retained local reference must resolve.
+    available = schema.pop("$defs", {})
+    retained, pending = {}, [schema]
+    while pending:
+        value = pending.pop()
+        if isinstance(value, dict):
+            reference = value.get("$ref", "")
+            key = reference.removeprefix("#/$defs/")
+            if reference.startswith("#/$defs/") and key in available and key not in retained:
+                retained[key] = available[key]
+                pending.append(available[key])
+            pending.extend(value.values())
+        elif isinstance(value, list):
+            pending.extend(value)
+    schema["$defs"] = retained
     return definitions
 
 

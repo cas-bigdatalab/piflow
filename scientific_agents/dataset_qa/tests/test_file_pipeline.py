@@ -192,7 +192,10 @@ def test_artifact_handle_reused_across_sessions_without_query(engine, files):
                 found = json.loads(messages[-1].content)["data"]["items"]
                 assert len(found) == 1 and found[0]["handle"] == owned[0]["handle"]
                 name = next(d["function"]["name"] for d in definitions if d["function"]["name"].endswith("_export_dataset"))
-                return action(name, format="csv", **{OBJECT: found[0]["handle"], TASK: {"complete_request": True}})
+                source = service.artifacts.get("alice", found[0]["handle"])
+                return action(name, format="csv", **{OBJECT: found[0]["handle"], TASK: {"complete_request": True,
+                    "source_requirements": {"criteria": deepcopy(source["provenance"].get("query")),
+                        "fields": deepcopy(source["resource"].get("fields"))}}})
             service.dialogue = BareDialogue(action("find_artifacts"), export, text())
             sid2 = session(service, request="second-session")
             values = await collect(service, sid2, "把上次的文件导出CSV")

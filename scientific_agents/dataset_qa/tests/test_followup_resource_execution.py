@@ -63,11 +63,19 @@ async def retrieve(service, sid, *, threshold=80, limit=1000, rid="retrieve"):
     return result_cards(events)[0]["data"]["items"][0]["resource"]
 
 
-def export_action(definitions, handle):
+def source_requirements(service, handle):
+    """The fixture's user selected this exact saved source without new criteria."""
+    source = service.artifacts.get("alice", handle)
+    return {"criteria": deepcopy(source["provenance"].get("query")),
+        "fields": deepcopy(source["resource"].get("fields"))}
+
+
+def export_action(definitions, handle, requirements=None):
     alias = next(item["function"]["name"] for item in definitions
         if item["function"]["name"].endswith("_export_dataset"))
     return action(alias, format="csv", **{OBJECT: handle,
-        TASK: {"complete_request": True, "operation": "export", "output_format": "csv"}})
+        TASK: {"complete_request": True, "operation": "export", "output_format": "csv",
+            "source_requirements": requirements if requirements is not None else {"criteria": None, "fields": None}}})
 
 
 def test_query_then_export_uses_published_source_once_with_competing_tools(engine, files, download_client, monkeypatch):
@@ -88,7 +96,7 @@ def test_query_then_export_uses_published_source_once_with_competing_tools(engin
                 assert resource["record_count"] == 2 and resource["format"] == "jsonl"
                 assert resource["server"] == "piflow-corpus"
                 assert any(item["function"]["name"].endswith("_molecule_search_compounds") for item in definitions)
-                return export_action(definitions, resource["handle"])
+                return export_action(definitions, resource["handle"], source_requirements(service, resource["handle"]))
 
             service.dialogue = BareDialogue(export, text())
             events = await collect(service, sid, "把这些记录保存成 CSV", rid="export")
@@ -132,7 +140,7 @@ def test_incompatible_existing_resource_call_is_corrected_before_dispatch(engine
                 assert not wrong_calls
                 assert [name for name, _ in calls] == ["query_pubchem_compounds"]
                 assert "invalid_parameters" in messages[-1].content
-                return export_action(definitions, handle)
+                return export_action(definitions, handle, source_requirements(service, handle))
 
             service.dialogue = BareDialogue(wrong, correct, text())
             events = await collect(service, sid, "把这些记录保存成 CSV", rid="corrected-export")
@@ -197,7 +205,8 @@ def test_registered_export_goal_cannot_be_bypassed_by_omitting_resource_metadata
                 nonlocal handle
                 handle = json.loads(messages[1].content)["published_artifacts"]["items"][0]["handle"]
                 return action("remember", goals=[{"description": "导出已经取得的记录为 CSV",
-                    "tool": "export_dataset", "object": handle, "operation": "export", "output_format": "csv"}])
+                    "tool": "export_dataset", "object": handle, "operation": "export", "output_format": "csv",
+                    "source_requirements": source_requirements(service, handle)}])
 
             def wrong(messages, definitions):
                 alias = next(item["function"]["name"] for item in definitions
@@ -208,7 +217,7 @@ def test_registered_export_goal_cannot_be_bypassed_by_omitting_resource_metadata
                 assert not wrong_calls
                 assert [name for name, _ in calls] == ["query_pubchem_compounds"]
                 assert "invalid_parameters" in messages[-1].content
-                return export_action(definitions, handle)
+                return export_action(definitions, handle, source_requirements(service, handle))
 
             service.dialogue = BareDialogue(declare, wrong, correct, text())
             events = await collect(service, sid, "把这些记录保存成 CSV", rid="declared-export")
@@ -244,7 +253,7 @@ def test_changed_conditions_query_again_then_explicit_old_handle_exports_old_rec
                 found = json.loads(messages[-1].content)["data"]["items"]
                 assert len(found) == 2
                 chosen = next(item for item in found if item["handle"] == old_handle)
-                return export_action(definitions, chosen["handle"])
+                return export_action(definitions, chosen["handle"], source_requirements(service, chosen["handle"]))
 
             service.dialogue = BareDialogue(action("find_artifacts"), export_old, text())
             events = await collect(service, sid, "把第一次找到的记录保存为 CSV", rid="old-export")
@@ -284,7 +293,7 @@ def test_multiple_delivered_resources_keep_distinct_sources_for_followup(engine,
                 assert len({item["handle"] for item in resources["items"]}) == 2
                 chosen = max(resources["items"], key=lambda item: item["record_count"])
                 selected.update(service.artifacts.get("alice", chosen["handle"])["resource"])
-                return export_action(definitions, chosen["handle"])
+                return export_action(definitions, chosen["handle"], source_requirements(service, chosen["handle"]))
 
             service.dialogue = BareDialogue(choose, text())
             events = await collect(service, sid, "把这两份里记录更多的一份保存成 CSV", rid="chosen-export")

@@ -199,6 +199,10 @@ def final_evidence_view(cards, answer_cards, operations, limit, *, stop_reason=N
             return
         group = evidence_group(source, operations, max(4, budget))
         result[key] = group.get("items", [])
+        for entry in result[key]:
+            # This flag describes the writer's evidence, not the displayed card
+            # or the completeness of the upstream collection inside data.
+            entry["model_view_truncated"] = entry.pop("truncated", False)
         if len(result[key])<len(source):
             result[key+"_total"] = len(source)
             result[key+"_next_offset"] = len(result[key])

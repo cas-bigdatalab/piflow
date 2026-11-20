@@ -136,6 +136,14 @@ def resolve_tool(name, loaded):
     return matches[0]
 
 
+def export_operation(descriptor, intent=None):
+    """Representation-only semantics come from the declared capability/intent."""
+    intent = intent.model_dump() if isinstance(intent, BaseModel) else intent or {}
+    return bool(descriptor.artifact and descriptor.artifact.consume and descriptor.routing
+        and "export" in descriptor.routing.operations
+        and (intent.get("operation") == "export" or descriptor.routing.operations == ["export"]))
+
+
 def validate_intent(tool, intent, arguments=None):
     """Check a declared operation against its adapter, independent of tool names.
 
@@ -148,6 +156,11 @@ def validate_intent(tool, intent, arguments=None):
     descriptor = profile(tool)
     operation, fmt = intent.get("operation"), intent.get("output_format")
     routing = descriptor.routing
+    if (descriptor.artifact and descriptor.artifact.consume and routing
+            and "export" in routing.operations and len(routing.operations) > 1 and not operation):
+        raise QAError("invalid_parameters", "此能力提供多种数据操作，请先明确本轮操作", detail={
+            "field": "operation", "supported_operations": routing.operations, "dispatched": False,
+            "guidance": "Declare the requested operation. Representation-only export must preserve source selection; transformations use their own declared operation."})
     if operation and (not routing or operation not in routing.operations):
         raise QAError("invalid_parameters", "所选能力与本轮操作要求不一致，尚未执行", detail={
             "operation": operation, "supported_operations": routing.operations if routing else [],
@@ -205,6 +218,16 @@ def identifiers_from_request(tool, arguments, message):
 def directive_schema(descriptor, policy=None):
     """One task contract for advertised native calls and runtime validation."""
     task = task_schema(policy or (descriptor.search.policy if descriptor.search else None))
+    definitions = task.pop("$defs", {})
+    if (descriptor.artifact and descriptor.artifact.consume and descriptor.routing
+            and "export" in descriptor.routing.operations):
+        field = task["properties"]["source_requirements"]
+        for variant in field.get("anyOf", []):
+            if variant.get("$ref") == "#/$defs/SourceRequirements":
+                variant.clear()
+                variant.update(deepcopy(definitions["SourceRequirements"]))
+    else:
+        task["properties"].pop("source_requirements", None)
     if descriptor.search:
         task["required"].extend(["keywords", "original_keywords"])
     else:
@@ -218,9 +241,74 @@ def directive_schema(descriptor, policy=None):
     return task
 
 
+def model_input_schema(original):
+    """Express simple optional null defaults through omission in model input only."""
+    from jsonschema import Draft202012Validator
+
+    schema = deepcopy(original)
+    complex_keys = {"$ref", "$dynamicRef", "allOf", "oneOf", "if", "then", "else", "not",
+        "dependentRequired", "dependentSchemas", "dependencies"}
+    if not isinstance(schema, dict) or (complex_keys | {"anyOf", "minProperties", "patternProperties"}) & schema.keys():
+        return schema
+    required = set(schema.get("required", []))
+    for name, field in schema.get("properties", {}).items():
+        if (name in required or name.startswith("__qa_") or not isinstance(field, dict)
+                or "default" not in field or field["default"] is not None
+                or "const" in field or "enum" in field):
+            continue
+        pending, complex_field = [field], False
+        while pending:
+            item = pending.pop()
+            if isinstance(item, dict):
+                complex_field |= bool(complex_keys & item.keys())
+                pending.extend(item.values())
+            elif isinstance(item, list):
+                pending.extend(item)
+        if complex_field:
+            continue
+        candidate = deepcopy(field)
+        types = candidate.get("type")
+        if isinstance(types, list) and "null" in types and any(value != "null" for value in types):
+            candidate["type"] = [value for value in types if value != "null"]
+        elif isinstance(candidate.get("anyOf"), list):
+            branches = candidate["anyOf"]
+            candidate["anyOf"] = [branch for branch in branches if not (
+                isinstance(branch, dict) and branch.get("type") == "null"
+                and set(branch) <= {"type", "title", "description"})]
+            if not candidate["anyOf"] or len(candidate["anyOf"]) == len(branches):
+                continue
+        else:
+            continue
+        try:
+            if not Draft202012Validator(field).is_valid(None) or Draft202012Validator(candidate).is_valid(None):
+                continue
+        except Exception:
+            continue
+        candidate.pop("default")
+        if isinstance(candidate.get("examples"), list):
+            candidate["examples"] = [value for value in candidate["examples"] if value is not None]
+            if not candidate["examples"]:
+                candidate.pop("examples")
+        candidate["description"] = candidate.get("description", "") + (
+            " Omit this optional argument to use its null default; supply a concrete value only when needed.")
+        schema["properties"][name] = candidate
+    return schema
+
+
 def definition(tool):
-    schema = deepcopy(tool.schema)
+    schema = model_input_schema(tool.schema)
     descriptor = profile(tool)
+    if descriptor.directory:
+        from jsonschema import Draft202012Validator
+
+        parent = schema["properties"][descriptor.directory.parent]
+        root = "omit or use JSON null (unquoted)" if Draft202012Validator(tool.schema).evolve(schema=parent).is_valid(None) else "omit"
+        parent["description"] = parent.get("description", "") + (
+            " Root: " + root + ". "
+            "Child: use an exact directory-node ID from this dataset/source or an explicit user parameter.")
+        if ("default" in parent and parent["default"] is None
+                and Draft202012Validator(tool.schema).evolve(schema=parent).is_valid(None)):
+            parent.setdefault("examples", [None])
     if adapted(tool):
         schema.setdefault("properties", {}).update({
             SUPPORTING: {"type": ["boolean", "null"], "default": False, "description": "True for an auxiliary lookup rather than a requested outcome."},

@@ -23,6 +23,9 @@ class Execution:
         self.recovering = False
         self.operations = Operations()
         self.prepared = {}
+        self.scope_proposal = None  # Unvalidated calls awaiting scope, only in this turn.
+        self.produced_sources = set()  # Owned artifacts from successful MCP receipts in this turn.
+        self.source_requirements = {}  # Explicit current intent survives a rejected source proposal.
         self.stale_scopes, self.blocked = {}, set()
         self.reviewed_failures = set()
         self.discovery_recovered = False

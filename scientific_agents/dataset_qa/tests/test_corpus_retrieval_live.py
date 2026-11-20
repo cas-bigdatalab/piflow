@@ -5,10 +5,12 @@ DATASET_QA_LIVE_MODEL_NAME select a test-only model endpoint. Optional
 DATASET_QA_LIVE_CORPUS_QUERY changes the search request; comma-separated
 DATASET_QA_LIVE_CORPUS_EXPECT sets relevance terms (default: 共和县,光伏).
 DATASET_QA_LIVE_REPORT_DIR receives a sanitized report. No fixed dataset ID is used.
+The combined node requests details and directory in one follow-up. Set
+DATASET_QA_LIVE_CORPUS_DIRECTORY_EXPECT=nonempty|empty|unsupported to assert the
+actual source outcome (default nonempty); unsupported must be explicit upstream
+evidence, not a guessed capability gap or another retrieval failure.
 """
 import asyncio
-from contextlib import asynccontextmanager
-from contextvars import ContextVar
 from copy import deepcopy
 import json
 import logging
@@ -25,25 +27,11 @@ from ..service import DatasetQA
 from .test_artifact_download_origin import http_mcp
 from .test_dataset_qa import collect, engine, result_cards, session
 from .test_decisions import payload
-from .test_model_sequence_live import AcceptanceFailure, ObservedDialogue, require, safe_arguments, safe_exception
-
-
-def foreground_marker(monkeypatch):
-    """Observe the shared foreground gate used by searches and ordinary calls."""
-    foreground = ContextVar("corpus_acceptance_business_call", default=False)
-    original = DatasetQA._foreground_mcp
-
-    @asynccontextmanager
-    async def marked(service):
-        token = foreground.set(True)
-        try:
-            async with original(service):
-                yield
-        finally:
-            foreground.reset(token)
-
-    monkeypatch.setattr(DatasetQA, "_foreground_mcp", marked)
-    return foreground
+from .test_model_sequence_live import (
+    AcceptanceFailure, COMBINED_TURN, ObservedDialogue, final_answer, foreground_marker,
+    require, safe_arguments, safe_correction, safe_exception, scrub_text,
+    verify_combined_model_identifiers, verify_combined_retrieval,
+)
 
 
 def test_foreground_marker_counts_search_pages_and_excludes_background_calls(engine, monkeypatch):
@@ -76,8 +64,7 @@ def test_foreground_marker_counts_search_pages_and_excludes_background_calls(eng
     asyncio.run(run())
 
 
-@pytest.mark.skipif(os.getenv("DATASET_QA_LIVE_CORPUS") != "1", reason="Opt-in real model and external corpus retrieval")
-def test_real_corpus_search_detail_directory_keep_grounded_reference(engine, tmp_path, monkeypatch, caplog):
+def _real_corpus_retrieval(engine, tmp_path, monkeypatch, caplog, *, combined=False):
     from infra.config_loader import get_settings
     settings = get_settings()
     provider = settings.providers[settings.llm.provider]
@@ -89,7 +76,10 @@ def test_real_corpus_search_detail_directory_keep_grounded_reference(engine, tmp
     query = os.getenv("DATASET_QA_LIVE_CORPUS_QUERY", "我想找共和县光伏观测站相关的数据集")
     terms = [term.strip() for term in os.getenv("DATASET_QA_LIVE_CORPUS_EXPECT", "共和县,光伏").split(",") if term.strip()]
     require(bool(terms), "At least one relevance term is required")
-    turns = [("search", query), ("detail", "看下这个数据集的详情"), ("directory", "看下目录结构")]
+    turns = ([("search", query), COMBINED_TURN] if combined else
+        [("search", query), ("detail", "看下这个数据集的详情"), ("directory", "看下目录结构")])
+    directory_mode = os.getenv("DATASET_QA_LIVE_CORPUS_DIRECTORY_EXPECT", "nonempty")
+    require(directory_mode in {"nonempty", "empty", "unsupported"}, "Unsupported directory expectation configuration")
     active, reports, found, background = {}, [], {}, []
     foreground = foreground_marker(monkeypatch)
     original_call, original_correct = ToolSession.call, Execution.correct
@@ -101,8 +91,15 @@ def test_real_corpus_search_detail_directory_keep_grounded_reference(engine, tmp
             active["calls"].append((name, deepcopy(arguments)))
         else:
             background.append(name)
-        result = await original_call(tools, alias, arguments, **kwargs)
+        try:
+            result = await original_call(tools, alias, arguments, **kwargs)
+        except Exception as exc:
+            if business_call:
+                active["failures"][name] = exc
+            raise
         _, output = result
+        if business_call:
+            active["outputs"][name] = deepcopy(output.data)
         if business_call and name == "search_corpus_datasets" and isinstance(output.data, dict):
             for row in output.data.get("items", []):
                 if isinstance(row, dict):
@@ -114,6 +111,7 @@ def test_real_corpus_search_detail_directory_keep_grounded_reference(engine, tmp
 
     def correction(execution, error, limit, **kwargs):
         active["corrections"].append(error.code)
+        active["correction_details"].append(safe_correction(error))
         return original_correct(execution, error, limit, **kwargs)
 
     monkeypatch.setattr(ToolSession, "call", capture)
@@ -133,23 +131,34 @@ def test_real_corpus_search_detail_directory_keep_grounded_reference(engine, tmp
             sid = session(service)
             try:
                 for label, utterance in turns:
-                    active.update(calls=[], corrections=[])
+                    active.update(calls=[], corrections=[], correction_details=[], outputs={}, failures={})
                     first_background = len(background)
                     started, first_round = time.perf_counter(), len(dialogue.rounds)
                     report = {"turn": label, "correct": False}
+                    reference = None
                     reports.append(report)
                     try:
                         events = await collect(service, sid, utterance, rid=label)
                         saved = payload(service, sid, events)
+                        report["final_answer"] = final_answer(events)
                         report["error_code"] = (saved.get("error") or {}).get("error_code")
-                        require(not saved.get("error"), "Corpus turn did not complete successfully")
+                        if label != "detail_directory":
+                            require(not saved.get("error"), "Corpus turn did not complete successfully")
                         require(bool(result_cards(events)), "Corpus turn did not deliver a result card")
                         names = [name for name, _ in active["calls"]]
                         if label == "search":
                             require(bool(names) and set(names) == {"search_corpus_datasets"}, "Search ran an unexpected capability")
                             report.update(candidate_count=len(found), relevant_count=sum(map(relevant, found.values())),
-                                candidate_titles=[str(row.get("title", ""))[:200] for row in list(found.values())[:12]])
+                                candidate_titles=[scrub_text(row.get("title", ""), 200) for row in list(found.values())[:12]])
                             require(any(map(relevant, found.values())), "No actual search record matches the configured relevance terms")
+                        elif label == "detail_directory":
+                            references = {arguments.get("cstr") for _, arguments in active["calls"]}
+                            require(len(references) == 1, "Combined retrieval did not share one dataset identity")
+                            reference = next(iter(references))
+                            require(reference in found and relevant(found[reference]),
+                                "Combined source is absent from relevant actual search results")
+                            report["combined"] = verify_combined_retrieval(active["calls"], saved, events,
+                                reference, active["outputs"], active["failures"], directory=directory_mode)
                         else:
                             expected = "get_corpus_dataset_detail" if label == "detail" else "get_corpus_dataset_directory"
                             require(names == [expected], "Follow-up did not execute exactly the requested retrieval")
@@ -169,9 +178,13 @@ def test_real_corpus_search_detail_directory_keep_grounded_reference(engine, tmp
                             report["failure"] = str(exc)
                         raise
                     finally:
+                        if label == "detail_directory":
+                            report["draft_identifier_diagnostics"] = verify_combined_model_identifiers(
+                                dialogue.rounds[first_round:], reference)
                         report.update(seconds=round(time.perf_counter() - started, 3),
                             model_calls=len(dialogue.rounds) - first_round, model_trace=dialogue.rounds[first_round:],
                             corrections=active["corrections"], mcp_call_count=len(active["calls"]),
+                            correction_details=active["correction_details"],
                             background_mcp_call_count=len(background) - first_background,
                             mcp_calls=[{"name": name, "arguments": safe_arguments(args)} for name, args in active["calls"]])
                         print("DATASET_QA_REAL_CORPUS_TURN " + json.dumps({key: report[key] for key in
@@ -184,11 +197,22 @@ def test_real_corpus_search_detail_directory_keep_grounded_reference(engine, tmp
         asyncio.run(run())
     except Exception as exc:
         failure = safe_exception(exc)
-    summary = {"real_model": True, "real_corpus_upstream": True, "correct": failure is None,
+    summary = {"real_model": True, "real_corpus_upstream": True, "combined": combined, "correct": failure is None,
         "failure": failure, "background_mcp_call_count": len(background), "turns": reports}
     destination = Path(os.getenv("DATASET_QA_LIVE_REPORT_DIR") or tmp_path)
     destination.mkdir(parents=True, exist_ok=True)
-    (destination / "real_corpus_retrieval.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
+    filename = "real_corpus_combined_retrieval.json" if combined else "real_corpus_retrieval.json"
+    (destination / filename).write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
     print("DATASET_QA_REAL_CORPUS_REPORT " + json.dumps(summary, ensure_ascii=False))
     if failure is not None:
         pytest.fail("Real corpus acceptance failed; see sanitized DATASET_QA_REAL_CORPUS_REPORT.", pytrace=False)
+
+
+@pytest.mark.skipif(os.getenv("DATASET_QA_LIVE_CORPUS") != "1", reason="Opt-in real model and external corpus retrieval")
+def test_real_corpus_search_detail_directory_keep_grounded_reference(engine, tmp_path, monkeypatch, caplog):
+    _real_corpus_retrieval(engine, tmp_path, monkeypatch, caplog)
+
+
+@pytest.mark.skipif(os.getenv("DATASET_QA_LIVE_CORPUS") != "1", reason="Opt-in real model and external corpus retrieval")
+def test_real_corpus_search_then_combined_detail_directory_keep_grounded_reference(engine, tmp_path, monkeypatch, caplog):
+    _real_corpus_retrieval(engine, tmp_path, monkeypatch, caplog, combined=True)

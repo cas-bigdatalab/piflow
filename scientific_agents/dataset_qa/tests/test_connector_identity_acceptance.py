@@ -134,3 +134,67 @@ def test_disabled_same_name_is_counted_once_in_available_total(isolated_connecto
     assert service.get_available_dataset_total() == 7
     assert [call.get("filters") for call in calls["datasets"]] == [None, {"sources": ["Shared archive"]}]
     assert len(calls["snapshot"]) == 1 and not calls["resources"]
+
+
+@pytest.mark.parametrize("entrypoint", ["list", "detail"])
+def test_unknown_explicit_id_does_not_bind_to_its_known_name(isolated_connectors, entrypoint):
+    calls = isolated_connectors([connector("known", "Archive")], [{"connectorId": "unknown", "name": "Archive"}])
+    result = service.list_dataset_details()["items"][0] if entrypoint == "list" else service.get_dataset_detail("dataset-1")
+    assert result["connectors"][0]["connectorId"] == "unknown"
+    assert result["connectors"][0]["status"] == "不可用"
+    assert not calls["resources"]
+
+
+@pytest.mark.parametrize("reference,identifier", [("node-a", "node-a"), ({"name": "node-a"}, "node-b")])
+def test_bare_reference_prefers_id_while_explicit_name_resolves_as_name(isolated_connectors, reference, identifier):
+    calls = isolated_connectors([connector("node-a", "Archive"), connector("node-b", "node-a")], [reference])
+    result = service.get_dataset_detail("dataset-1")
+    assert result["connectors"][0]["connectorId"] == identifier
+    assert len(calls["resources"]) == 1
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_ambiguous_name_stays_unbound_beside_an_explicit_id(isolated_connectors, reverse):
+    references = [{"name": "Shared"}, {"connectorId": "node-a"}]
+    calls = isolated_connectors([connector("node-a", "Shared"), connector("node-b", "Shared")],
+        list(reversed(references)) if reverse else references)
+    rows = service.get_dataset_detail("dataset-1")["connectors"]
+    assert len(rows) == 2
+    assert {(row["connectorId"], row["status"]) for row in rows} == {("", "不可用"), ("node-a", "可用")}
+    assert len(calls["resources"]) == 1
+
+
+@pytest.mark.parametrize("entrypoint", ["list", "detail"])
+def test_name_resolution_checks_later_snapshot_pages_for_ambiguity(isolated_connectors, monkeypatch, entrypoint):
+    calls = isolated_connectors([], [{"name": "Shared"}])
+    pages = [[connector("first", "Shared"), *[connector(str(index), "Other " + str(index)) for index in range(99)]],
+        [connector("second", "Shared")]]
+    def snapshot(**kwargs):
+        calls["snapshot"].append(kwargs)
+        return {"data": {"content": pages[kwargs["page_num"] - 1], "total": 101}}
+    monkeypatch.setattr(service, "_fetch_connector_page", snapshot)
+    result = service.list_dataset_details()["items"][0] if entrypoint == "list" else service.get_dataset_detail("dataset-1")
+    assert result["connectors"][0]["status"] == "不可用"
+    assert not calls["resources"]
+    assert [item["page_num"] for item in calls["snapshot"]] == [1, 2]
+
+
+@pytest.mark.parametrize("enabled_first", [False, True])
+def test_shared_enabled_source_name_is_not_subtracted_from_available_total(isolated_connectors, monkeypatch, enabled_first):
+    entries = [connector("enabled", "Shared", enabled=True), connector("disabled", "Shared", enabled=False)]
+    calls = isolated_connectors(entries if enabled_first else list(reversed(entries)), [])
+    def datasets(**kwargs):
+        calls["datasets"].append(kwargs)
+        return {"data": {"content": [], "total": 10 if not kwargs.get("filters") else 3}}
+    monkeypatch.setattr(service, "_fetch_dataset_page", datasets)
+    assert service.get_available_dataset_total() == 10
+    assert [call.get("filters") for call in calls["datasets"]] == [None]
+
+
+def test_resource_entrypoint_resolves_wrapped_connector_without_a_second_probe(isolated_connectors):
+    calls = isolated_connectors([connector("node-a", "Archive A")], [{"connectorId": "node-a"}])
+    result = service.get_dataset_connector_detail_with_resource("dataset-1")
+    row, = result["dataset"]["connectors"]
+    assert (row["connectorId"], row["name"], row["status"]) == ("node-a", "Archive A", "可用")
+    assert row["connectorOrganization"] == "Institution node-a"
+    assert len(calls["snapshot"]) == len(calls["resources"]) == 1

@@ -14,7 +14,7 @@ from pydantic import ValidationError
 
 from .context import encode, project, public_result, slice_result
 from .context_budget import recovery_evidence
-from .capabilities import GOAL, OBJECT, SUPPORTING, TASK, adapted, directive_schema, inputs, profile, request_identifiers, resolve_tool, same_identity, same_object_identity, validate_export, validate_intent
+from .capabilities import GOAL, OBJECT, SUPPORTING, TASK, adapted, directive_schema, export_operation, inputs, profile, request_identifiers, resolve_tool, same_identity, same_object_identity, validate_export, validate_intent
 from .contracts import QAError
 from .dialogue import INPUTS, Dialogue, OutcomeConfirmation, builtin_definitions
 from .execution import Execution, fingerprint
@@ -25,13 +25,14 @@ from .results import collection_paths, combine_results, evidence, evidence_group
 from .references import all_references, apply_update, at_path, display_list, handle_order, pending_objects, preview, scoped_preview
 from .runtime import Waiting
 from .parallel import run_read_batch
-from .responses import compact_delivery_status, delivery_links, delivery_status, delivery_summary, public_completion, response_labels, response_operations, recovery_search_summary
+from .responses import bounded_delivery_summary, compact_delivery_status, delivery_links, delivery_status, delivery_summary, empty_delivery_summary, public_completion, response_labels, response_operations, recovery_search_summary
 from .search import SearchPolicy, SearchRun, TaskDirective, normalize_keyword, ordered_keywords
 from .resource_index.manager import ResourceIndex
-from .resource_index.resolver import bind_target, resolve as resolve_resource
-from .planning import plan_decision, plan_view, outcome_status, require_delivery
+from .resource_index.resolver import bind_parent, bind_target, directory_receipt, resolve as resolve_resource
+from .resource_index.model import source_identity
+from .planning import SourceRequirements, plan_decision, plan_view, outcome_status, require_delivery
 from .plan_runtime import install_plan, confirm_plan, scheduled_reply, workflow_definition
-from .artifacts import Artifacts, execution_metadata
+from .artifacts import Artifacts, execution_metadata, validate_source_requirements
 from ..agent_profiles import DATASET_QA_PROFILE
 from .prompts import answer_prompt, system_prompt
 
@@ -782,6 +783,8 @@ class DatasetQA:
     def _definitions(definitions, tools, execution):
         """Expose grounded choices for ambiguous calls and late outcome confirmation."""
         result = []
+        source_contracts = any((descriptor := profile(tool)).artifact and descriptor.artifact.consume
+            and descriptor.routing and "export" in descriptor.routing.operations for tool in tools.loaded.values())
         visible = {definition["function"]["name"] for definition in definitions}
         confirmations = execution.operations.confirmable({card["result_id"] for card in execution.cards.values()})
         for definition in definitions:
@@ -791,6 +794,12 @@ class DatasetQA:
                 step = definition["function"]["parameters"].get("$defs", {}).get("WorkflowStep", {})
                 step.get("properties", {}).pop("goal", None)
             definition = workflow_definition(definition, tools.loaded, visible)
+            if definition["function"]["name"] == "remember" and not source_contracts:
+                definition = deepcopy(definition)
+                contracts = definition["function"]["parameters"].get("$defs", {})
+                for contract in contracts.values():
+                    contract.get("properties", {}).pop("source_requirements", None)
+                contracts.pop("SourceRequirements", None)
             if definition["function"]["name"]=="deliver_results" and confirmations:
                 # The model reviews semantic sufficiency; the runtime validates
                 # provenance. Offering this explicit association avoids both a
@@ -824,6 +833,31 @@ class DatasetQA:
                             "The shared maxItems only accommodates all choices; runtime enforces the selected goal's keyword and candidate bounds.")
                     definition["function"]["parameters"]["properties"][TASK] = task
                 goals = [item for item in execution.operations.required if item.get("capability")==capability]
+                if (descriptor.artifact and descriptor.artifact.consume and descriptor.routing
+                        and "export" in descriptor.routing.operations and len(descriptor.routing.operations) > 1
+                        and TASK in definition["function"]["parameters"].get("properties", {})
+                        and not (goals and all(item.get("intent", {}).get("operation") for item in goals))):
+                    definition = deepcopy(definition)
+                    schema = definition["function"]["parameters"]
+                    task = schema["properties"][TASK]
+                    task["properties"]["operation"] = {"type": "string", "enum": descriptor.routing.operations}
+                    task.setdefault("required", []).append("operation")
+                    if TASK not in schema.setdefault("required", []):
+                        schema["required"].append(TASK)
+                if (export_operation(descriptor)
+                        and TASK in definition["function"]["parameters"].get("properties", {})
+                        and not any(server == tool.server for server, _ in execution.produced_sources)
+                        and not (goals and all(item.get("intent", {}).get("source_requirements") is not None for item in goals))):
+                    definition = deepcopy(definition)
+                    schema = definition["function"]["parameters"]
+                    task = schema["properties"][TASK]
+                    field = task["properties"]["source_requirements"]
+                    task["properties"]["source_requirements"] = {**next(
+                        variant for variant in field["anyOf"] if variant.get("type") == "object"),
+                        "description": field["description"]}
+                    task.setdefault("required", []).append("source_requirements")
+                    if TASK not in schema.setdefault("required", []):
+                        schema["required"].append(TASK)
                 if descriptor.atomic and not descriptor.search:
                     definition = deepcopy(definition)
                     # Declared goals supply scope. Otherwise expose the needed
@@ -833,7 +867,7 @@ class DatasetQA:
                     schema["allOf"].pop()
                     if not schema["allOf"]:
                         schema.pop("allOf")
-                    if not goals:
+                    if not goals and TASK not in schema.get("required", []):
                         schema.setdefault("required", []).append(TASK)
                 if len(goals)>1:
                     choices = [item for item in goals if item["id"] not in execution.blocked]
@@ -999,11 +1033,10 @@ class DatasetQA:
         await self._write(user, sid, tid, payload=payload)
         return {"ready": True, "executed": False, "evidence_ids": ids}
 
-    async def _save_tool_result(self, user, sid, tid, tool, output, operation_id, key, result_id, execution, payload, arguments=None):
+    async def _save_tool_result(self, user, sid, tid, tool, output, operation_id, key, result_id, execution, payload, arguments=None, *, source_id=None):
         descriptor = profile(tool)
         intent = (execution.operations.get(operation_id) or {}).get("intent", {})
-        export = intent.get("operation") == "export" or (not intent.get("operation")
-            and descriptor.routing and descriptor.routing.operations == ["export"])
+        export = export_operation(descriptor, intent)
         if (arguments is not None and descriptor.artifact and descriptor.artifact.consume
                 and export):
             source = await asyncio.to_thread(self.artifacts.authorize, user, tool.server,
@@ -1017,12 +1050,24 @@ class DatasetQA:
             view = metadata.get("view_type", "tool_result") if isinstance(metadata, dict) else "tool_result"
             card = {"result_id": result_id, "view_type": view,
                 "title": f"{tool.server} · {tool.title}", **output.payload()}
+            if descriptor.directory and arguments is not None:
+                try:
+                    source_id = source_id or source_identity(self.gateway.configured_servers()[tool.server])
+                    card["directory_receipt"] = directory_receipt(tool, source_id, arguments)
+                    card["directory_receipt"]["entry_count"] = len(descriptor.directory.rows(output.data))
+                except (QAError, KeyError):
+                    # Optional provenance must not discard a successful result.
+                    # Without a complete scope it cannot authorize later paths.
+                    log.info("Directory receipt scope unavailable: task=%s tool=%s", tid, tool.alias)
             if spec := descriptor.artifact:
                 aid = await asyncio.to_thread(self.artifacts.register, user, sid, card, tool, spec)
                 if aid:
                     card["file_artifact"] = aid
         execution.operations.finish(operation_id, key, result_id=card["result_id"],
             acceptance=descriptor.result.assess(output.data) if descriptor.result else None)
+        if descriptor.artifact and card.get("file_artifact"):
+            resource = at_path(card["data"], descriptor.artifact.path)
+            execution.produced_sources.add((tool.server, resource["source_ref"]))
         self._register_objects(tool, card, payload)
         if payload.get("plan"):
             payload["plan"]["acceptance"] = outcome_status(payload["plan"], execution.operations,
@@ -1034,7 +1079,7 @@ class DatasetQA:
         if created and arguments is not None and descriptor.directory:
             try:
                 dataset = await self._target_record(user, sid, operation.get("target"))
-                indexed = await self.resources.observe(user, tool, arguments, output.data, dataset)
+                indexed = await self.resources.observe(user, tool, arguments, output.data, dataset, source_id=source_id)
                 if indexed is not None:
                     # A newly completed prerequisite changes the evidence.
                     # Earlier negative location lookups must not mask it.
@@ -1121,7 +1166,7 @@ class DatasetQA:
             else:
                 tool, output = result
                 card, _ = await self._save_tool_result(user, sid, tid, tool, output, operation_id, key,
-                    result_id, execution, payload, args)
+                    result_id, execution, payload, args, source_id=source_identity(tools.servers[tool.server]))
                 outcomes[call["id"]] = {"card": card}
 
         async with waiting.during("正在等待并行查询返回，已完成的信息会及时保存。"):
@@ -1233,7 +1278,8 @@ class DatasetQA:
                         _, output = await tools.call(tool.alias, arguments)
                     search.rows(output.data, descriptor.collection)
                     last, created = await self._save_tool_result(user, sid, tid, tool, output,
-                        operation_id, key, f"{tid}:{results}", execution, payload, arguments)
+                        operation_id, key, f"{tid}:{results}", execution, payload, arguments,
+                        source_id=source_identity(tools.servers[tool.server]))
                     results += int(created)
                     payload["result_sequence"] = results
                 else:
@@ -1346,6 +1392,7 @@ class DatasetQA:
         try:
             bindings = await self._prepare_operation_proposal(user, sid, tid, reply, tools, proposed,
                 next_payload, next_context, model_context, scheduled)
+            proposed.scope_proposal = None
             if next_payload != payload or next_context != context:
                 await self._write(user, sid, tid, payload=next_payload,
                     context=next_context if next_context != context else None)
@@ -1353,10 +1400,48 @@ class DatasetQA:
             tools.loaded.clear()
             tools.loaded.update(loaded)
             tools.plan_pins = pins
+            if (isinstance(exc, QAError) and isinstance(exc.detail, dict)
+                    and exc.detail.get("phase") == "scope_admission"
+                    and exc.detail.get("decision") == "declare_outcomes"
+                    and not scheduled and not payload.get("plan")
+                    and all(call["name"] in tools.loaded or call["name"] == "remember" for call in reply.tool_calls)):
+                # Retain typed proposals, not accepted operations. New explicit
+                # goals replace rejected goals; original focus/continuation and
+                # business parameters remain subject to normal admission.
+                retained = []
+                for call in deepcopy(reply.tool_calls):
+                    if call["name"] == "remember":
+                        call["args"].pop("goals", None)
+                        if not call["args"]:
+                            continue
+                    retained.append(call)
+                execution.scope_proposal = retained
+                exc.detail = {**exc.detail, "retained_proposal": True,
+                    "guidance": "No calls ran. The original typed calls are retained for this turn, not yet validated. "
+                        "Submit remember.goals ONLY (description, tool, object if applicable) covering every requested call; "
+                        "runtime will revalidate and execute the retained calls without regenerating business arguments. "
+                        "Explicit native calls or a plan replace and discard the retained proposal. "
+                        "Do not invent goals or add a plan for independent calls."}
+            elif (execution.scope_proposal and isinstance(exc, QAError)
+                    and isinstance(exc.detail, dict) and exc.detail.get("phase") == "input_binding"):
+                execution.scope_proposal = None
+                exc.detail = {**exc.detail, "retained_proposal": False, "correction_action": "replace_calls",
+                    "guidance": exc.detail.get("guidance", "") +
+                        " The retained calls failed input validation and were discarded. Submit corrected native calls "
+                        "with the required goals; remember.goals alone cannot repair business arguments."}
             # Mode discovery is not an accepted change to targets or references.
             if isinstance(exc, QAError) and exc.code == "planning_required":
                 payload["planning"] = True
             raise
+        for key, expected in list(proposed.source_requirements.items()):
+            if key[2] is not None:
+                continue
+            owners = [item for item in proposed.operations.items
+                if item.get("capability") == {"server": key[0], "name": key[1]}
+                and same_identity(item.get("intent", {}).get("source_requirements"), expected)]
+            if len(owners) == 1:
+                proposed.source_requirements[(*key[:2], owners[0]["id"])] = expected
+                del proposed.source_requirements[key]
         execution.__dict__.update(proposed.__dict__)
         payload.clear()
         payload.update(next_payload)
@@ -1367,7 +1452,9 @@ class DatasetQA:
     async def _prepare_operation_proposal(self, user, sid, tid, reply, tools, execution, payload, context, model_context=None, scheduled=None):
         """Accept native actions independently; runtime owns associations and IDs."""
         native = [call for call in reply.tool_calls if call["name"] in tools.loaded]
+        accepted_goal_ids = {item["id"] for item in execution.operations.items}
         memory = [INPUTS["remember"][0].model_validate(call["args"]) for call in reply.tool_calls if call["name"]=="remember"]
+        continuation_bindings = {}
         plans = [value.plan for value in memory if value.plan is not None]
         if plans:
             if (len(plans) != 1 or any(call["name"] != "remember" for call in reply.tool_calls)
@@ -1388,7 +1475,7 @@ class DatasetQA:
             continuing = [call for call in native if GOAL in call["args"]
                 and isinstance(call["args"].get(TASK), dict) and "complete_request" not in call["args"][TASK]]
             if continuing:
-                expanded, _ = self._continue_searches(continuing, tools, execution, payload)
+                expanded, continuation_bindings = self._continue_searches(continuing, tools, execution, payload)
                 by_id = {call["id"]: call for call in expanded}
                 native = [by_id.get(call["id"], call) for call in native]
         if not scheduled and any(profile(tools.loaded[call["name"]]).plan_required for call in native):
@@ -1396,11 +1483,31 @@ class DatasetQA:
             raise QAError("planning_required", "此操作通过计划执行，请登记本轮步骤", detail={
                 "guidance": "Submit remember.plan={steps:[{key,tool,arguments,object?}]} for the CURRENT request. Use object=source_step_key for file dependencies. Include the requested final format. Runtime derives kinds and producers; no MCP operation has run."})
         declared = any(value.goals for value in memory) or any(item.get("planned") for item in execution.operations.required)
-        whole_request_batch = len(native)>1 and any(isinstance(call["args"].get(TASK), dict)
-            and call["args"][TASK].get("complete_request") is True for call in native)
-        if whole_request_batch and not declared:
-            raise QAError("invalid_parameters", "声明完成整个请求的操作不能同时追加其他MCP调用", detail={
-                "guidance": "For independent requested outcomes, submit remember.goals before or with their native calls; each goal keeps its own completion evidence. A whole-request shortcut alone cannot describe multiple outcomes."})
+        legacy = any(value.operations is not None or value.calls is not None or value.resume is not None for value in memory)
+        # Explicit auxiliary evidence does not claim a second requested outcome.
+        # Multiple scoped calls need explicit intent even when every shortcut
+        # flag is false. Keep their admission atomic before any dispatch.
+        auxiliary_continuations = {call_id for call_id, goal_id in continuation_bindings.items()
+            if (goal := execution.operations.get(goal_id)) and not goal.get("required", True) and not goal.get("inferred")}
+        requested_calls = [call for call in native if call["id"] not in auxiliary_continuations
+            and (not adapted(tools.loaded[call["name"]]) or call["args"].get(SUPPORTING) is not True)]
+        scoped_calls = {call["id"] for call in requested_calls if adapted(tools.loaded[call["name"]])
+            and (profile(tools.loaded[call["name"]]).atomic or profile(tools.loaded[call["name"]]).search)}
+        scope_batch = not legacy and not scheduled and len(scoped_calls)>1
+        whole_request_batch = len(native)>1 and any(adapted(tools.loaded[call["name"]])
+            and isinstance(call["args"].get(TASK), dict)
+            and call["args"][TASK].get("complete_request") is True for call in requested_calls)
+        scope_feedback = {
+            "decision": "declare_outcomes", "phase": "scope_admission", "dispatched": False,
+            "tools": list(dict.fromkeys(call["name"] for call in requested_calls)),
+            "guidance": "No calls ran. complete_request=true means the ENTIRE user turn, not one outcome. "
+                "Before multiple requested calls, preserve valid business arguments and co-emit remember.goals "
+                "(description, tool, object if applicable) covering EACH call, with those native calls using complete_request=false. "
+                "Changing complete_request to false alone does not declare outcomes. "
+                "Remove unrequested calls; use __qa_supporting=true only for genuine auxiliary evidence. "
+                "Do not add a plan for independent calls."}
+        if not legacy and not scheduled and not declared and (scope_batch or (whole_request_batch and len(requested_calls)>1)):
+            raise QAError("invalid_parameters", "同批独立操作须先明确本轮所需成果", detail=scope_feedback)
         asking = any(call["name"]=="request_input" for call in reply.tool_calls)
         execution.prepared = {}
         if not native and not memory and not (context.get("pending") and asking):
@@ -1408,7 +1515,6 @@ class DatasetQA:
         original_operations, original_cards = execution.operations, dict(execution.cards)
         original_references = deepcopy(context.get("references", {}))
         original_pending, original_resume = deepcopy(context.get("pending")), payload.get("resume")
-        legacy = any(value.operations is not None or value.calls is not None or value.resume is not None for value in memory)
         bindings = await self._prepare_legacy_operations(user, sid, tid, reply, tools, execution, payload, context) if legacy else {}
         bindings.update(scheduled or {})
         requested = [call["args"].get(OBJECT) for call in native]
@@ -1570,10 +1676,13 @@ class DatasetQA:
                     goal_id = current["id"]
                 else:
                     goal_id = operations.register(goal.description, {"server": tool.server, "name": tool.name}, target, goal.output, planned=True)
-                intent = {key: value for key, value in goal.model_dump(include={"operation", "output_format"}).items() if value is not None}
+                intent = {key: value for key, value in goal.model_dump(include={"operation", "output_format", "source_requirements"}).items() if value is not None}
                 current_intent = operations.get(goal_id).setdefault("intent", {})
-                if any(key in current_intent and current_intent[key] != value for key, value in intent.items()):
-                    raise QAError("invalid_parameters", "已登记目标的操作和格式要求须保留")
+                if any(key in current_intent and not (
+                        SourceRequirements.model_validate(value).refines(SourceRequirements.model_validate(current_intent[key]))
+                        if key == "source_requirements" else same_identity(current_intent[key], value))
+                        for key, value in intent.items()):
+                    raise QAError("invalid_parameters", "已登记目标的操作、格式及当前数据要求须保留")
                 current_intent.update(intent)
                 if profile(tool).plan_required:
                     payload["planning"] = True
@@ -1681,6 +1790,9 @@ class DatasetQA:
                 target = await bind_target(self, user, sid, tool, descriptor, target, validate=True)
                 record = await source(target)
                 prepared = inputs(tool, arguments, record)
+                if descriptor.directory:
+                    prepared = await bind_parent(self, user, sid, tool, prepared, payload["message"],
+                        source=source_identity(tools.servers[tool.server]))
                 if descriptor.bind and target is None:
                     # Direct identifiers supplied by the user need no prior
                     # search. Identifiers absent from sources/request are unsafe.
@@ -1699,29 +1811,36 @@ class DatasetQA:
                         and not any(attempt["state"] != "rejected" for attempt in item["attempts"])]
                     if not matches and target is not None and descriptor.bind and len(unbound) == 1:
                         matches = unbound
+                if scope_batch and call["id"] in scoped_calls and not any(
+                        item.get("required", True) and item.get("planned") for item in matches):
+                    raise QAError("invalid_parameters", "同批独立操作须分别关联已声明的成果", detail=scope_feedback)
                 if (adapted(tool) and (descriptor.search or descriptor.atomic) and directive is None
                         and not legacy and not scheduled
                         and (descriptor.search or (not supporting
                             and not any(item.get("planned") and item.get("required") for item in matches)))):
                     raise QAError("invalid_parameters", "请补充本次操作的任务范围，尚未执行", detail={
                         "path": [TASK], "constraint": "required",
-                        "guidance": "Supply __qa_task using the current schema. Set complete_request=true for one requested outcome; use false for a part and declare independent goals. For discovery supply original_keywords and the keyword plan. No MCP operation has run."})
+                        "guidance": "Supply __qa_task using the current schema. Set complete_request=true only for the entire user turn; for independent outcomes co-emit remember.goals and calls with false. For discovery supply original_keywords and the keyword plan. No MCP operation has run."})
                 # Goals, direct calls and scheduled steps share the same
                 # operation/format contract. A completed prior turn contributes
                 # resources, never this turn's intent.
                 intents = []
-                if directive:
-                    intents.append(directive.model_dump(include={"operation", "output_format"}, exclude_none=True))
                 if scheduled and call["id"] in scheduled:
-                    intents.append({key: step[key] for key in ("operation", "output_format") if step.get(key) is not None})
+                    intents.append({key: step[key] for key in ("operation", "output_format", "source_requirements") if step.get(key) is not None})
                 elif not supporting and len(matches) == 1:
                     intents.append(matches[0].get("intent", {}))
                 elif not supporting and len(execution.operations.required) == 1:
                     intents.append(execution.operations.required[0].get("intent", {}))
+                if directive:
+                    intents.append({key: value for key, value in directive.model_dump(
+                        include={"operation", "output_format", "source_requirements"}).items() if value is not None})
                 call_intent = {}
                 for intent in intents:
-                    if any(key in call_intent and call_intent[key] != value for key, value in intent.items()):
-                        raise QAError("invalid_parameters", "本次调用须保留已登记的操作和格式要求")
+                    if any(key in call_intent and not (
+                            SourceRequirements.model_validate(value).refines(SourceRequirements.model_validate(call_intent[key]))
+                            if key == "source_requirements" else same_identity(call_intent[key], value))
+                            for key, value in intent.items()):
+                        raise QAError("invalid_parameters", "本次调用须保留已登记的操作、格式及当前数据要求")
                     call_intent.update(intent)
                 validate_intent(tool, call_intent, prepared)
                 tools.validate(call["name"], prepared)
@@ -1795,6 +1914,36 @@ class DatasetQA:
                 operation = execution.operations.get(operation_id)
                 if operation and call_intent:
                     operation.setdefault("intent", {}).update(call_intent)
+                export = export_operation(descriptor, call_intent)
+                if descriptor.artifact and descriptor.artifact.consume and export:
+                    source_ref = prepared[descriptor.artifact.consume]
+                    source_manifest = await asyncio.to_thread(self.artifacts.authorize, user, tool.server, source_ref)
+                    current_source = (tool.server, source_ref) in execution.produced_sources
+                    if (not current_source and operation_id not in accepted_goal_ids
+                            and len([item for item in execution.operations.required if item.get("capability") == capability]) > 1):
+                        raise QAError("invalid_parameters", "多个旧文件导出须先分别声明当前数据要求", detail={
+                            "origin": "source_requirements_scope", "dispatched": False,
+                            "guidance": "First submit remember.goals with source_requirements for each independent export, without native calls. "
+                                "Then select the supplied goal IDs for each call. Requirements are never associated by call order or description."})
+                    identity = (tool.server, tool.name, operation_id if operation_id in accepted_goal_ids else None)
+                    expected = execution.source_requirements.get(identity,
+                        execution.source_requirements.get((tool.server, tool.name, None)))
+                    declared_requirements = call_intent.get("source_requirements")
+                    if (expected is not None and declared_requirements is not None and not
+                            SourceRequirements.model_validate(declared_requirements).refines(SourceRequirements.model_validate(expected))):
+                        if operation is not None:
+                            operation.setdefault("intent", {})["source_requirements"] = deepcopy(expected)
+                        raise QAError("invalid_parameters", "纠正来源时须保留已明确的当前数据要求", detail={
+                            "origin": "source_requirements", "dispatched": False, "source_requirements": expected,
+                            "guidance": "Keep these current requirements. Select a compatible source or run its producer/transformation; do not revert to the old source's conditions."})
+                    expected = declared_requirements if declared_requirements is not None else expected
+                    if expected is not None:
+                        # This shared turn-local map retains only typed intent,
+                        # never goals, references or execution from a rejected batch.
+                        execution.source_requirements[identity] = deepcopy(expected)
+                        if operation is not None:
+                            operation.setdefault("intent", {})["source_requirements"] = deepcopy(expected)
+                    validate_source_requirements(source_manifest, expected, required=not current_source)
                 if operation and descriptor.label:
                     operation["public_label"] = descriptor.label
                 if directive and directive.complete_request and operation and not supporting and (descriptor.atomic or descriptor.search):
@@ -1831,15 +1980,17 @@ class DatasetQA:
                             for item in goals if item["id"] not in execution.blocked]})
                 execution.prepared[call["id"]] = (prepared, None, target)
             except QAError as exc:
+                if scope_batch and isinstance(exc.detail, dict) and exc.detail.get("decision") == "declare_outcomes":
+                    raise  # Scope belongs to the whole proposal, not one rejected call.
                 operation = execution.operations.get(operation_id)
                 exc.detail = {**(exc.detail if isinstance(exc.detail, dict) else {}),
                     "tool": tool.alias, "step": operation.get("plan_step") if operation else None,
                     "phase": "input_binding", "dispatched": False}
                 execution.prepared[call["id"]] = (arguments, exc, None)
             bindings[call["id"]] = operation_id
-        if whole_request_batch and any(error for _, error, _ in execution.prepared.values()):
-            # Explicit outcomes take precedence over shortcut flags. Validate
-            # that reconciliation before dispatching any part of such a batch.
+        if (whole_request_batch or scope_batch) and any(error for _, error, _ in execution.prepared.values()):
+            # Every requested call in a scoped batch needs a valid declared
+            # outcome and inputs before any part of the batch may dispatch.
             execution.operations, execution.cards = original_operations, original_cards
             context["references"] = original_references
             raise next(error for _, error, _ in execution.prepared.values() if error)
@@ -2066,8 +2217,20 @@ class DatasetQA:
         status = delivery_status(operations, payload.get("delivery_sources", []),
             labels=payload.get("response_labels"), request=payload.get("message", ""),
             plan=payload.get("plan"), cards=[*cards, *answer_cards])
+        if not reason and not payload.get("response_basis"):
+            summary = empty_delivery_summary(operations, status, [*cards, *answer_cards],
+                payload.get("delivery_sources", []))
+            if summary:
+                await self._notice(user, sid, tid, answer, summary)
+                return
         delivery = final_evidence_view(cards, answer_cards, operations, self.gateway.limits.result_chars,
             stop_reason=self._response_notice(reason, bool(cards)) if reason else None)
+        if not reason and not payload.get("response_basis") and not payload.get("plan"):
+            summary = bounded_delivery_summary(operations, status, cards,
+                payload.get("delivery_sources", []), delivery)
+            if summary:
+                await self._notice(user, sid, tid, answer, summary)
+                return
         # Answer generation is a separate trust boundary. Planning feedback and
         # tool errors remain available for correction, never for public wording.
         context = {key: value for key, value in json.loads(messages[1].content).items()
@@ -2150,6 +2313,8 @@ class DatasetQA:
                 continue
             view = {key: value[key] for key in ("result_id", "data", "next_offset", "truncated", "field_paths", "content")
                 if key in value}
+            if "truncated" in view:
+                view["model_view_truncated"] = view.pop("truncated")
             view.update(path=args.get("path", ""), offset=args.get("offset", 0))
             focused.append(HumanMessage(encode({"focused_evidence": view})))
         # Focused reads may contain the exact deep field/page requested by the
@@ -2364,6 +2529,16 @@ class DatasetQA:
                             else:
                                 advertised.update(call["name"] for call in reply.tool_calls)
                                 log.info("Plan dispatch: task=%s revision=%s steps=%s", tid, saved_plan["revision"], len(reply.tool_calls))
+                            retained = execution.scope_proposal
+                            if (retained and not scheduled and reply.tool_calls
+                                    and all(call["name"] == "remember" and set(call["args"]) == {"goals"}
+                                        for call in reply.tool_calls)):
+                                restored = deepcopy(retained)
+                                for call in restored:
+                                    call["id"] = "scope-"+uuid4().hex
+                                reply = reply.model_copy(update={"tool_calls": [*reply.tool_calls, *restored]})
+                            else:
+                                execution.scope_proposal = None
                             if reply.tool_calls:
                                 for call in reply.tool_calls:
                                     name = call["name"]
@@ -2565,7 +2740,8 @@ class DatasetQA:
                                             tool, output = await self._invoke_mcp(user, tid, key, tool, arguments, tools,
                                                 started+limits.turn_timeout-limits.summary_timeout)
                                         card, created = await self._save_tool_result(user, sid, tid, tool, output,
-                                            operation_id, key, f"{tid}:{results}", execution, payload, arguments)
+                                            operation_id, key, f"{tid}:{results}", execution, payload, arguments,
+                                            source_id=source_identity(tools.servers[tool.server]))
                                         results += int(created)
                                         value = self._evidence(card)
                                 except (QAError, ValidationError) as exc:

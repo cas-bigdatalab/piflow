@@ -4,7 +4,8 @@ Plans contain only intent, parameters and source pointers. Receipts remain in th
 existing operations ledger; neither a planner nor a review can invent success.
 """
 from copy import deepcopy
-from typing import Annotated, Literal
+import json
+from typing import Annotated, Any, Literal
 
 from jsonschema import Draft202012Validator
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -21,12 +22,64 @@ class Contract(BaseModel):
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
 
+class SourceRequirements(Contract):
+    """Explicit source constraints; unspecified dimensions retain selected data."""
+    criteria: dict[str, Any] | None = Field(...,
+        description="Explicit query constraints for the selected source. Each supplied parameter must match its complete value; omitted parameters are retained. Null adds no query constraint.")
+    fields: list[Annotated[str, Field(min_length=1, max_length=200)]] | None = Field(..., max_length=256,
+        description="Explicit complete field selection, if requested. Null retains the selected source fields without an additional constraint.")
+
+    @model_validator(mode="before")
+    @classmethod
+    def finite_json(cls, value):
+        if isinstance(value, cls):
+            return value
+        try:
+            encoded = json.dumps(value, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
+        except (TypeError, ValueError, RecursionError) as exc:
+            raise ValueError("Source requirements must be finite JSON.") from exc
+        if len(encoded) > 6000:
+            raise ValueError("Source requirements exceed the bounded intent contract.")
+        pending = [value]
+        while pending:
+            item = pending.pop()
+            if isinstance(item, dict):
+                if any(not isinstance(key, str) for key in item):
+                    raise ValueError("Source requirement keys must be strings.")
+                pending.extend(item.values())
+            elif isinstance(item, list):
+                pending.extend(item)
+            elif item is not None and not isinstance(item, (str, int, float, bool)):
+                raise ValueError("Source requirements must contain only JSON values.")
+        return value
+
+    @model_validator(mode="after")
+    def distinct_fields(self):
+        if self.fields is not None:
+            self.fields = list(dict.fromkeys(self.fields))
+        return self
+
+    def __eq__(self, other):
+        if not isinstance(other, SourceRequirements):
+            return NotImplemented
+        return same_identity(self.model_dump(), other.model_dump())
+
+    def refines(self, previous: "SourceRequirements") -> bool:
+        """Allow added constraints without erasing or changing accepted values."""
+        return ((not previous.criteria or self.criteria is not None and all(
+            key in self.criteria and same_identity(self.criteria[key], value)
+            for key, value in previous.criteria.items()))
+            and (previous.fields is None or same_identity(self.fields, previous.fields)))
+
+
 class CallIntent(Contract):
     """Requested operation, separate from the selected tool's capabilities."""
     operation: str | None = Field(default=None, min_length=1, max_length=80,
         description="Requested operation from advertised capability operations, e.g. export for representation-only conversion; filtering is a different operation.")
     output_format: str | None = Field(default=None, min_length=1, max_length=40,
         description="User-requested output format; preserve it when choosing or correcting a tool.")
+    source_requirements: SourceRequirements | None = Field(default=None,
+        description="Explicit current source constraints for an export. Use null dimensions for pure format conversion; preserve constraints already declared during this request.")
 
 
 class Check(Contract):
@@ -209,10 +262,14 @@ def validate_revision(previous, plan):
     steps = {step.key: step for step in plan.steps}
     for step in old.steps:
         current_step = steps.get(step.key)
-        if current_step is not None and any(getattr(step, field) is not None
+        if current_step is None and step.source_requirements is not None:
+            raise QAError("invalid_parameters", "计划修订须保留已声明来源要求的步骤标识", detail={"step": step.key})
+        if current_step is not None and (any(getattr(step, field) is not None
                 and getattr(current_step, field) != getattr(step, field)
-                for field in ("operation", "output_format")):
-            raise QAError("invalid_parameters", "计划修订须保留已声明的操作目的和输出格式", detail={"step": step.key})
+                for field in ("operation", "output_format"))
+                or step.source_requirements is not None and (current_step.source_requirements is None
+                    or not current_step.source_requirements.refines(step.source_requirements))):
+            raise QAError("invalid_parameters", "计划修订须保留已声明的操作目的和输出格式，以及来源要求", detail={"step": step.key})
     current = {outcome.key: outcome for outcome in plan.outcomes}
     for outcome in old.outcomes:
         value = current.get(outcome.key)

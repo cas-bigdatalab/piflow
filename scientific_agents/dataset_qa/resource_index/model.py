@@ -13,6 +13,11 @@ def digest(value):
     return sha256(json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
+def valid_identifier(value):
+    return (not isinstance(value, bool) and isinstance(value, (str, int))
+        and (not isinstance(value, str) or bool(value.strip())))
+
+
 def source_identity(server):
     target = server.target
     if callable(target):
@@ -64,6 +69,11 @@ class DirectorySpec(BaseModel):
             raise QAError("invalid_parameters", "目录索引缺少完整的数据集身份")
         return {key: value for key, value in arguments.items() if key!=self.parent}
 
+    def scope_key(self, server, source, tool, arguments):
+        self.base(arguments)
+        identity = {key: arguments[key] for key in self.identity}
+        return digest([server, source, tool, self.model_dump(), identity])
+
     def rows(self, data):
         for path in self.status:
             try:
@@ -88,7 +98,7 @@ class DirectorySpec(BaseModel):
             if not isinstance(row, dict):
                 raise QAError("invalid_schema", "目录节点必须是对象")
             identity, name, is_file = (at_path(row, pointer) for pointer in (self.node_id, self.name, self.is_file))
-            if (isinstance(identity, bool) or not isinstance(identity, (str, int)) or identity==""
+            if (not valid_identifier(identity)
                     or not isinstance(name, str) or not name or not isinstance(is_file, bool)):
                 raise QAError("invalid_schema", "目录节点缺少稳定身份、名称或类型")
             url = None

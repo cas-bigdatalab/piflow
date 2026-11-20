@@ -254,6 +254,25 @@ class IndexStore:
                 raise QAError("reference_not_found", "资源索引不属于当前可用范围")
             return dict(value)
 
+    def directory_parent(self, user, tool, source, arguments, identity):
+        """Read an already observed parent; never queue or wait for index work."""
+        from ..capabilities import profile
+
+        spec = profile(tool).directory
+        expected = spec.scope_key(tool.server, source, tool.name, arguments)
+        with self.transaction() as conn:
+            query = select(self.scopes, self.nodes.c.identity.label("node_identity")).join(self.nodes,
+                and_(self.nodes.c.scope==self.scopes.c.id,
+                    self.nodes.c.generation==self.scopes.c.generation)).where(
+                self.scopes.c.user_id==user, self.scopes.c.server==tool.server,
+                self.scopes.c.source==source, self.scopes.c.tool==tool.name,
+                self.nodes.c.key==digest(identity), self.nodes.c.kind=="directory")
+            for row in conn.execute(query).mappings():
+                stored = DirectorySpec.model_validate_json(row["descriptor"])
+                if stored.scope_key(row["server"], row["source"], row["tool"], json.loads(row["arguments"]))==expected:
+                    return json.loads(row["node_identity"])
+        return None
+
     def scopes_for(self, user, sources, record=None, dataset=None):
         from ..capabilities import same_identity
         from ..references import at_path, matching_objects

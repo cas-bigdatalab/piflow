@@ -11,7 +11,7 @@ from .contracts import QAError
 from .context import encode, same_identity
 from .operations import Operations
 from .execution import Execution, fingerprint
-from .planning import Check, FromStep, Outcome, Plan, ResultContract, Step, Workflow, outcome_status, validate_revision
+from .planning import CallIntent, Check, FromStep, Outcome, Plan, ResultContract, SourceRequirements, Step, Workflow, outcome_status, validate_revision
 from .references import at_path
 from .results import collection_paths, combine_results
 from .search import SearchRun, TaskDirective, normalize_keyword
@@ -81,7 +81,7 @@ def _compile_task_directive(step, tools):
     value = step.arguments[TASK]
     detail = {"step": step.key, "tool": tool.alias, "path": ["arguments", TASK],
         "phase": "plan_validation", "dispatched": False,
-        "guidance": "Use step.operation and step.output_format for intent, and arguments for business inputs. Plan outcomes determine completion; preserve completed steps."}
+        "guidance": "Use step.operation, step.output_format and step.source_requirements for intent, and arguments for business inputs. Plan outcomes determine completion; preserve completed steps."}
     error = next(Draft202012Validator(TaskDirective.model_json_schema()).iter_errors(value), None)
     if error:
         raise QAError("invalid_parameters", "计划中的任务说明不符合已声明的任务契约", detail={
@@ -92,12 +92,15 @@ def _compile_task_directive(step, tools):
         raise QAError("invalid_parameters", "计划中的任务说明无效", detail=detail) from exc
     if directive.keywords is not None or directive.original_keywords is not None:
         raise QAError("invalid_parameters", "此原子步骤不能承载检索关键词计划", detail=detail)
-    for name in ("operation", "output_format"):
+    for name in ("operation", "output_format", "source_requirements"):
         requested = getattr(directive, name)
         if requested is None:
             continue
-        if getattr(step, name) not in (None, requested):
-            raise QAError("invalid_parameters", "步骤声明与任务说明中的操作或格式不一致", detail={
+        existing = getattr(step, name)
+        compatible = (requested.refines(existing) if name == "source_requirements" and existing is not None
+            else existing in (None, requested))
+        if not compatible:
+            raise QAError("invalid_parameters", "步骤声明与任务说明中的操作、格式或来源要求不一致", detail={
                 **detail, "path": [*detail["path"], name], "field": name})
         setattr(step, name, requested)
     del step.arguments[TASK]
@@ -202,6 +205,20 @@ def _compile_dependencies(plan, tools):
     return plan
 
 
+def _rejected_export_source(step, tool, item):
+    """Only an explicitly selected, never-dispatched source mismatch may retarget."""
+    descriptor = profile(tool)
+    attempts = item["attempts"]
+    last_detail = attempts[-1].get("error", {}).get("detail") if attempts else None
+    return (step.goal == item["id"] and item["state"] == "pending"
+        and item.get("intent", {}).get("source_requirements") is not None
+        and descriptor.artifact and descriptor.artifact.consume
+        and (item.get("intent", {}).get("operation") == "export"
+            or descriptor.routing and descriptor.routing.operations == ["export"])
+        and attempts and all(a["state"] == "rejected" and a.get("dispatched") is False for a in attempts)
+        and isinstance(last_detail, dict) and last_detail.get("origin") == "source_requirements")
+
+
 def _existing_goal(step, tool, concrete, target, operations, excluded):
     """Match declared work by stable identity; a receipt additionally needs exact inputs.
 
@@ -213,11 +230,16 @@ def _existing_goal(step, tool, concrete, target, operations, excluded):
     invocation = fingerprint([tool.server, tool.name, concrete])
 
     def compatible(item):
-        if (item["id"] in excluded or item.get("capability") != capability
-                or not same_identity(item.get("target"), target)
-                or isinstance(step.object, FromStep) or step.inputs
-                or any(getattr(step, name) not in (None, value)
-                    for name, value in item.get("intent", {}).items())):
+        if item["id"] in excluded or item.get("capability") != capability:
+            return False
+        for name, value in item.get("intent", {}).items():
+            current = getattr(step, name, None)
+            if current is not None and not (current.refines(SourceRequirements.model_validate(value))
+                    if name == "source_requirements" and value is not None
+                    else same_identity(current, value)):
+                return False
+        if (not _rejected_export_source(step, tool, item) and (not same_identity(item.get("target"), target)
+                or isinstance(step.object, FromStep) or step.inputs)):
             return False
         if item.get("search"):
             search = SearchRun(deepcopy(item["search"]))
@@ -330,7 +352,7 @@ def compile_workflow(workflow, tools, previous=None):
         prior = old_steps.get(call.key)
         tool_name = prior.tool if prior and resolve_tool(prior.tool, tools.loaded).alias == tool.alias else tool.alias
         intent = {name: getattr(prior, name) if prior and name not in call.model_fields_set else getattr(call, name)
-            for name in ("operation", "output_format")}
+            for name in ("operation", "output_format", "source_requirements")}
         steps.append(Step(key=call.key, goal=call.goal or (prior.goal if prior else None), tool=tool_name, arguments=arguments, fresh=call.fresh,
             object=target, inputs=bindings, depends_on=list(call.depends_on), **intent))
     consumed = set().union(*(step.dependencies() for step in steps))
@@ -503,11 +525,16 @@ async def install_plan(service, user, sid, plan, tools, execution, payload, cont
             old = _existing_goal(step, tool, concrete, target, operations, excluded)
             if old is not None:
                 migrated, old_id = True, old["id"]
+                if _rejected_export_source(step, tool, old):
+                    old["plan_retry"] = revision
                 step.goal = old_id
+                old["target"] = deepcopy(target)
                 if old.get("search"):
                     SearchRun(old["search"]).extend(concrete, (step.arguments.get(TASK) or {}).get("keywords"))
-                for name, value in old.get("intent", {}).items():
-                    setattr(step, name, value)
+                inherited_intent = CallIntent.model_validate(old.get("intent", {}))
+                for name in old.get("intent", {}):
+                    if getattr(step, name) is None:
+                        setattr(step, name, getattr(inherited_intent, name))
                 validate_intent(tool, step, None if format_inputs & deferred else concrete)
                 if old.get("required", True):
                     if step.key in workflow and workflow[step.key].deliver is False:
@@ -563,6 +590,10 @@ async def install_plan(service, user, sid, plan, tools, execution, payload, cont
         item = operations.get(operation_id)
         item["public_label"] = descriptor.label or tool.title
         item["plan_fresh"] = step.fresh
+        intent = {name: value for name, value in step.model_dump(include=set(CallIntent.model_fields)).items()
+            if value is not None}
+        if intent:
+            item["intent"] = intent
         if not step.inputs and not isinstance(step.object, FromStep) and not item["attempts"]:
             invocation = fingerprint([tool.server, tool.name, concrete])
             if operations.blocked_receipt(invocation):
