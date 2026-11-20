@@ -461,3 +461,7 @@ async def export_dataset(
 def create_mcp_app():
     """Create the Streamable HTTP ASGI app mounted by ``server.py``."""
     return mcp.http_app(path="/", transport="streamable-http")
+
+
+# Register BDBE tools after the shared FastMCP instance has been created.
+from mcp_servers import bdbe_mcp as _bdbe_mcp  # noqa: E402,F401

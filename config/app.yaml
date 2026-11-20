@@ -44,6 +44,16 @@ corpus_route:
     # 留空不过滤；多个来源写成 ["来源名称A", "来源名称B"]，通过 sources 数组过滤，分页结果去重。
     source: ["科研语料库"]
 
+# BDBE API 配置。建议通过部署环境注入 access_key；如需直接配置，可填写下面的 access_key。
+# access_key 为空时，服务会读取环境变量 BDBE_ACCESS_KEY。
+bdbe:
+  base_url: "https://bdbe.cn"
+  access_key: ""
+  access_key_env: "BDBE_ACCESS_KEY"
+  timeout_seconds: 30
+  download_timeout_seconds: 300
+  max_download_ids: 100
+
 rustfs_admin:
   base_url: "http://10.0.85.201:9001"
   access_key: "rustfsadmin"

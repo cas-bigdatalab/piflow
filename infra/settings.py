@@ -50,6 +50,15 @@ class CorpusRouteConfig(BaseModel):
     cross_dag_dataset_filters: CrossDagDatasetFilters = Field(default_factory=CrossDagDatasetFilters)
 
 
+class BdbeConfig(BaseModel):
+    base_url: str = "https://bdbe.cn"
+    access_key: str = Field(default="", repr=False)
+    access_key_env: str = "BDBE_ACCESS_KEY"
+    timeout_seconds: int = 30
+    download_timeout_seconds: int = 300
+    max_download_ids: int = 100
+
+
 class RustFSAdminConfig(BaseModel):
     base_url: str = ""
     access_key: str = ""
@@ -128,6 +137,7 @@ class Settings(BaseModel):
     juicefs: JuiceFSConfig = Field(default_factory=JuiceFSConfig)
     community_server: CommunityServerConfig = Field(default_factory=CommunityServerConfig)
     corpus_route: CorpusRouteConfig = Field(default_factory=CorpusRouteConfig)
+    bdbe: BdbeConfig = Field(default_factory=BdbeConfig)
     rustfs_admin: RustFSAdminConfig = Field(default_factory=RustFSAdminConfig)
     llm: LLMConfig = Field(
         default_factory=lambda: LLMConfig(
