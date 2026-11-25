@@ -51,7 +51,8 @@ class CorpusRouteConfig(BaseModel):
 
 
 class BdbeConfig(BaseModel):
-    base_url: str = "https://bdbe.cn"
+    base_url: str = "http://223.193.38.223:8003"
+    host_header: str = "bdbe.cn"
     access_key: str = Field(default="", repr=False)
     access_key_env: str = "BDBE_ACCESS_KEY"
     timeout_seconds: int = 30

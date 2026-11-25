@@ -54,10 +54,15 @@ def _access_key() -> str:
 
 
 def _headers(*, accept: str = "application/json") -> dict[str, str]:
-    return {
+    config = get_settings().bdbe
+    headers = {
         "Accept": accept,
         "X-AK": _access_key(),
     }
+    host_header = str(config.host_header or "").strip()
+    if host_header:
+        headers["Host"] = host_header
+    return headers
 
 
 def _cookies(sessionid: str | None = None) -> dict[str, str] | None:

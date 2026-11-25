@@ -47,7 +47,8 @@ corpus_route:
 # BDBE API 配置。建议通过部署环境注入 access_key；如需直接配置，可填写下面的 access_key。
 # access_key 为空时，服务会读取环境变量 BDBE_ACCESS_KEY。
 bdbe:
-  base_url: "https://bdbe.cn"
+  base_url: "http://223.193.38.223:8003"
+  host_header: "bdbe.cn"
   access_key: ""
   access_key_env: "BDBE_ACCESS_KEY"
   timeout_seconds: 30
