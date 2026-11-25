@@ -29,7 +29,10 @@ def _upstream_tool_error(exc):
         return ToolError("BDBE 接口权限不足")
     if exc.status_code == 422:
         return ToolError("BDBE 请求参数校验失败")
-    return ToolError("BDBE 服务暂时不可用或返回内容不符合约定")
+    # Preserve the sanitized upstream status/detail from the service layer.
+    # Without this, HTTP 500 diagnostics are reduced to an unhelpful generic
+    # message and the actual BDBE failure cannot be fixed from the client.
+    return ToolError(str(exc))
 
 
 _SOURCE = [{"path": "/source", "test": "equals", "value": "BDBE"}]

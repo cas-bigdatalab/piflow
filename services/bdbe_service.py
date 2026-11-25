@@ -91,6 +91,11 @@ def _request_error(response: requests.Response, operation: str) -> BdbeUpstreamE
                 detail = detail_value[:300]
     except (ValueError, json.JSONDecodeError):
         pass
+    if not detail:
+        # BDBE's proxy sometimes returns plain text (or an HTML error page)
+        # instead of its JSON error shape. Keep a short, single-line excerpt
+        # so the MCP caller can distinguish an upstream bug from auth failure.
+        detail = " ".join(response.text.split())[:300]
     suffix = f": {detail}" if detail else ""
     return BdbeUpstreamError(
         f"BDBE {operation} failed with status {response.status_code}{suffix}",
