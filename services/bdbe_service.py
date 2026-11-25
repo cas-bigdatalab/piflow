@@ -135,8 +135,10 @@ def query_metadata(
     term: str,
     db: str | None = None,
     page: int = 1,
-    pagesize: int = 100,
+    pagesize: int = 5,
     genome_next: str | None = None,
+    language: str = "ch",
+    userid: str = "1",
     sessionid: str | None = None,
 ) -> Any:
     normalized_term = str(term or "").strip()
@@ -151,6 +153,8 @@ def query_metadata(
         "term": normalized_term,
         "page": page,
         "pagesize": pagesize,
+        "language": str(language or "ch").strip() or "ch",
+        "userid": str(userid or "1").strip() or "1",
     }
     if db:
         params["db"] = db
