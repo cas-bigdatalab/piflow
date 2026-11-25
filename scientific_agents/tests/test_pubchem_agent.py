@@ -6,9 +6,13 @@ import asyncio
 import csv
 import io
 import json
+import hashlib
+import os
+import time
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+import httpx
 import pytest
 from sqlalchemy import inspect
 
@@ -24,10 +28,82 @@ from ..dataset_qa.tests.test_local_artifacts import download_client
 from ..dataset_qa.tests.test_planning import approve
 from ..dataset_qa.tests.test_turn_file_workflow import REQUEST
 from ..dataset_qa.tests.test_workflow_input import compact_plan
+from ..dataset_qa.tests.test_artifact_download_origin import http_mcp
+from ..dataset_qa.tests.test_workflow_live import LiveDialogue
 from ..integration import install_scientific_agents
 from ..pubchem.profile import PROFILE
 from ..unified.schemas import PREFIX
 from .test_loading import identity, resources
+
+
+@pytest.mark.skipif(os.getenv("DATASET_QA_LIVE_PUBCHEM") != "1", reason="Opt-in real PubChem acceptance")
+@pytest.mark.parametrize("planner", ["scripted", "model"])
+def test_live_specialist_1200_csv_with_requested_columns(engine, tmp_path, monkeypatch, planner):
+    if planner == "model" and os.getenv("DATASET_QA_LIVE_MODEL") != "1":
+        pytest.skip("Real model acceptance needs configured credentials and explicit opt-in")
+    monkeypatch.setenv("DATASET_QA_ARTIFACT_ROOT", str(tmp_path / "artifacts"))
+    monkeypatch.delenv("DATASET_QA_ARTIFACT_BASE_URL", raising=False)
+    monkeypatch.delenv("DATASET_QA_ARTIFACT_SIGNING_KEY", raising=False)
+    columns = ["MolecularFormula", "MolecularWeight", "XLogP", "TPSA"]
+    calls = []
+    original = ToolSession.call
+    async def capture(tools, alias, arguments, **kwargs):
+        calls.append((tools.loaded[alias].name, dict(arguments)))
+        return await original(tools, alias, arguments, **kwargs)
+    monkeypatch.setattr(ToolSession, "call", capture)
+
+    async def run():
+        async with http_mcp("/api/piflow/v1/mcp") as base:
+            plan = compact_plan(limit=1200)
+            plan["steps"][0]["arguments"]["properties"] = columns
+            dialogue = LiveDialogue() if planner == "model" else BareDialogue(
+                action("remember", plan=plan), approve, text("已按条件整理结果，CSV 链接见下方。"))
+            service = DatasetQA(engine, dialogue, MCPGateway({"piflow-corpus": Server(base+"/")}), agent_profile=PROFILE)
+            sid = session(service)
+            try:
+                started = time.perf_counter()
+                events = await collect(service, sid,
+                    "我想从 PubChem 找一批和这个分子相似的化合物，用来做后续筛选，SMILES 是 "
+                    "CC(=O)OC1=CC=CC=C1C(=O)O。相似度至少 80%，分子量在 100 到 500 之间，"
+                    "LogP 在 -1 到 5 之间，先帮我下载 1200 条，保存成 CSV，"
+                    "csv中包括MolecularFormula,MolecularWeight,XLogP,TPSA字段。")
+                state = payload(service, sid, events)
+                assert not state.get("error"), state.get("error")
+                assert [op["state"] for op in state["operations"]] == ["succeeded", "succeeded"]
+                assert all(check["state"] == "accepted" for check in state["plan"]["acceptance"].values())
+                outputs = [item for card in result_cards(events) for item in card["data"]["items"]
+                    if item.get("resource", {}).get("format") == "csv"]
+                assert len(outputs) == 1
+                output = outputs[0]
+                assert output["target_count"] == output["record_count"] == 1200 and output["target_met"] is True
+                assert output["resource"]["fields"] == ["CID", "SMILES", *columns]
+                async with httpx.AsyncClient(timeout=20) as client:
+                    response = await client.get(output["downloadUrl"])
+                    partial = await client.get(output["downloadUrl"], headers={"Range": "bytes=0-31"})
+                assert response.status_code == 200 and partial.status_code == 206
+                assert "attachment" in response.headers["content-disposition"]
+                assert hashlib.sha256(response.content).hexdigest() == output["resource"]["sha256"]
+                rows = list(csv.DictReader(io.StringIO(response.text)))
+                assert len(rows) == len({r["CID"] for r in rows}) == 1200
+                assert list(rows[0]) == ["CID", "SMILES", *columns]
+                assert all(100 <= float(r["MolecularWeight"]) <= 500 and -1 <= float(r["XLogP"]) <= 5 for r in rows)
+                assert all(r["MolecularFormula"] and r["SMILES"] and float(r["TPSA"]) >= 0 for r in rows)
+                stats = output["statistics"]
+                assert stats["checked"] == stats["accepted"]+stats["excluded"]
+                assert [name for name, _ in calls] == ["query_pubchem_compounds", "export_dataset"]
+                assert calls[0][1] == query_args(limit=1200, properties=columns)
+                history = await service.get_session("alice", sid)
+                answer = [item["payload"]["text"] for item in history["items"] if item["item_type"] == "ASSISTANT_MESSAGE"][-1]
+                assert output["downloadUrl"] in answer
+                if planner == "scripted":
+                    assert len(dialogue.inputs) == 3
+                print({"planner": planner, "agent_id": PROFILE.agent_id, "rows": len(rows), "fields": list(rows[0]),
+                    "seconds": round(time.perf_counter()-started, 2), "mcp_calls": len(calls),
+                    "model_calls": dialogue.model_calls if planner == "model" else len(dialogue.inputs),
+                    "http": [response.status_code, partial.status_code], "statistics": stats})
+            finally:
+                await service.close()
+    asyncio.run(run())
 
 
 def test_scoped_real_mcp_keeps_qa_catalogue_and_blocks_group_escape():
@@ -37,7 +113,8 @@ def test_scoped_real_mcp_keeps_qa_catalogue_and_blocks_group_escape():
     async def run():
         async with parent.session() as tools:
             original = await tools.tools("piflow-corpus")
-            assert len(original) == 8
+            assert {"search_corpus_datasets", "get_corpus_dataset_detail", "get_corpus_dataset_directory",
+                "get_corpus_file_schema", "read_corpus_file_records", "query_pubchem_compounds", "export_dataset"} <= {tool.name for tool in original}
         for warm in (False, True):
             async with scoped.session() as tools:
                 await tools.prepare(REQUEST.format(threshold=80, limit=1000))
@@ -102,12 +179,14 @@ def test_pubchem_plan_changed_conditions_csv_links_and_model_budget(engine, file
     asyncio.run(run())
 
 
-def test_followup_export_after_restart_uses_owned_resource_without_requery(engine, files, download_client):
+@pytest.mark.parametrize("properties", [None, ["MolecularFormula", "MolecularWeight", "XLogP", "TPSA"]])
+def test_followup_export_after_restart_uses_owned_resource_without_requery(engine, files, download_client, properties):
     async def run():
         first = DatasetQA(engine, gateway=MCPGateway({"piflow-corpus": Server(mcp)}), agent_profile=PROFILE)
         sid = session(first)
         try:
             plan = {"steps": compact_plan()["steps"][:1]}
+            plan["steps"][0]["arguments"]["properties"] = properties
             first.dialogue = BareDialogue(action("remember", plan=plan), approve, text("已取得两条记录。"))
             values = await collect(first, sid, "PubChem 按条件查找化合物，不需要转换文件")
             assert result_cards(values)[0]["data"]["items"][0]["resource"]["format"] == "jsonl"
@@ -130,12 +209,14 @@ def test_followup_export_after_restart_uses_owned_resource_without_requery(engin
                 alias = next(item["function"]["name"] for item in definitions
                     if item["function"]["name"].endswith("_export_dataset"))
                 return action(alias, format="csv", **{OBJECT: handle,
-                    TASK: {"complete_request": True, "operation": "export", "output_format": "csv"}})
+                    TASK: {"complete_request": True, "operation": "export", "output_format": "csv",
+                        "source_requirements": {"criteria": None, "fields": None}}})
 
             restored.dialogue = BareDialogue(export, text("已将这些记录保存为 CSV。"))
             values = await collect(restored, sid, "把这些记录保存成 CSV", "export")
             result = result_cards(values)[0]["data"]["items"][0]
             assert result["resource"]["format"] == "csv" and result["record_count"] == 2
+            assert result["resource"]["fields"] == ["CID", "SMILES", *(properties or ["MolecularWeight", "XLogP"])]
             assert download_client.get(result["downloadUrl"]).status_code == 200
             assert len(files.requests) == 2  # No new PubChem query for a format change.
             assert len(restored.dialogue.inputs) == 2
