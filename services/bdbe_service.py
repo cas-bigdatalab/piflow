@@ -57,10 +57,15 @@ def _access_key() -> str:
 
 
 def _headers(*, accept: str = "application/json") -> dict[str, str]:
-    return {
+    config = get_settings().bdbe
+    headers = {
         "Accept": accept,
         "X-AK": _access_key(),
     }
+    host_header = str(config.host_header or "").strip()
+    if host_header:
+        headers["Host"] = host_header
+    return headers
 
 
 def _cookies(sessionid: str | None = None) -> dict[str, str] | None:
@@ -86,6 +91,11 @@ def _request_error(response: requests.Response, operation: str) -> BdbeUpstreamE
                 detail = detail_value[:300]
     except (ValueError, json.JSONDecodeError):
         pass
+    if not detail:
+        # BDBE's proxy sometimes returns plain text (or an HTML error page)
+        # instead of its JSON error shape. Keep a short, single-line excerpt
+        # so the MCP caller can distinguish an upstream bug from auth failure.
+        detail = " ".join(response.text.split())[:300]
     suffix = f": {detail}" if detail else ""
     return BdbeUpstreamError(
         f"BDBE {operation} failed with status {response.status_code}{suffix}",
@@ -130,8 +140,10 @@ def query_metadata(
     term: str,
     db: str | None = None,
     page: int = 1,
-    pagesize: int = 100,
+    pagesize: int = 5,
     genome_next: str | None = None,
+    language: str = "ch",
+    userid: str = "1",
     sessionid: str | None = None,
 ) -> Any:
     normalized_term = str(term or "").strip()
@@ -146,6 +158,8 @@ def query_metadata(
         "term": normalized_term,
         "page": page,
         "pagesize": pagesize,
+        "language": str(language or "ch").strip() or "ch",
+        "userid": str(userid or "1").strip() or "1",
     }
     if db:
         params["db"] = db
