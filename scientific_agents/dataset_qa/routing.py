@@ -45,7 +45,7 @@ def resource_candidate(tool, resources):
     descriptor = profile(tool)
     return bool(descriptor.artifact and descriptor.artifact.consume
         and descriptor.artifact.consume in descriptor.bind
-        and any(row.get("server") == tool.server and row.get("kind") == "record_resource" for row in resources))
+        and any(row.get("server") == tool.server and row.get("kind") == descriptor.artifact.kind for row in resources))
 
 
 def _tool_terms(tool, routing):

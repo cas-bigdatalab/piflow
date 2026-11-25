@@ -509,7 +509,7 @@ async def download_artifact(request: Request):
         path, name, fmt = await anyio.to_thread.run_sync(partial(local_download,
             request.path_params["token"], request.path_params["name"], 64 * 1024 * 1024))
         return StarletteFileResponse(path, filename=name, headers=headers,
-            media_type="text/csv; charset=utf-8" if fmt == "csv" else "application/x-ndjson")
+            media_type={"csv": "text/csv; charset=utf-8", "jsonl": "application/x-ndjson"}.get(fmt, "application/octet-stream"))
     except ArtifactStorageError:
         logging.getLogger("flow.corpus.artifacts").warning("Artifact download unavailable", exc_info=True)
         return JSONResponse({"message": "结果文件暂不可下载，您可以返回对话继续获取。"}, status_code=503, headers=headers)

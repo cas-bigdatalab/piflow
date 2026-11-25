@@ -81,10 +81,15 @@ class Tool:
     def plan_signature(self):
         """Stable schema and adapter identity for saved plan restoration."""
         from .capabilities import profile
+        descriptor = profile(self).model_dump(exclude={"label", "name_paths"})
+        if descriptor.get("artifact") and descriptor["artifact"].get("kind") == "record_resource":
+            # The original resource kind was implicit. An additive file kind
+            # must not invalidate saved plans for unchanged record tools.
+            descriptor["artifact"].pop("kind")
         value = {"schema": self.schema,
             "annotations": {key: self.annotations.get(key) for key in
                 ("readOnlyHint", "destructiveHint", "idempotentHint", "openWorldHint")},
-            "qa": profile(self).model_dump(exclude={"label", "name_paths"})}
+            "qa": descriptor}
         return sha256(json.dumps(value, sort_keys=True, ensure_ascii=False,
             separators=(",", ":"), allow_nan=False).encode()).hexdigest()
 
