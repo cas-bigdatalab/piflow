@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from functools import partial
+import logging
 from typing import Annotated, Any
 
 import anyio
@@ -13,6 +14,9 @@ from services.bdbe_service import (BdbeUpstreamError, download_genbank_file,
     get_metadata_detail, metadata_detail, metadata_page, query_metadata)
 from scientific_agents.dataset_qa.artifact_storage import ArtifactStorageError
 from mcp_servers.corpus_mcp import mcp, _artifact_download_context, _artifact_error, _execution_context
+
+
+log = logging.getLogger("flow.bdbe_mcp")
 
 
 def _metadata(title, operation, view, **contract):
@@ -48,7 +52,7 @@ _SOURCE = [{"path": "/source", "test": "equals", "value": "BDBE"}]
 )
 async def search_bdbe_metadata(
     term: Annotated[str, Field(min_length=1, max_length=500, description="在 BDBE 上查找生物信息元数据的关键词；先保留用户原词")],
-    db: Annotated[str | None, Field(max_length=200, description="上游实际数据库标识；未知时省略，不猜数据库代码")] = None,
+    db: Annotated[str, Field(max_length=200, description="BDBE 数据库标识，默认使用 BIE")] = "BIE",
     page: Annotated[int, Field(ge=1, description="页码，从 1 开始")] = 1,
     pagesize: Annotated[int, Field(ge=1, le=1000, description="每页数量，默认 5；按需分页，避免一次获取大量长文本")] = 5,
     genome_next: Annotated[str | None, Field(alias="genomeNext", max_length=200, description="上游明确提供的 Genome 聚合分页参数；通常省略，不自行生成")] = None,
@@ -63,6 +67,20 @@ async def search_bdbe_metadata(
     详情使用记录的 db 与 sdi；GenBank 下载使用真实 accessions，不能用 UID/SDI/CSTR 替代。
     本工具不执行分子结构相似度计算、性质区间筛选或文件格式导出。
     """
+    log.info(
+        "search_bdbe_metadata params=%s",
+        {
+            "term": term,
+            "db": db,
+            "page": page,
+            "pagesize": pagesize,
+            "genomeNext": genome_next,
+            "language": language,
+            "userid": userid,
+            "sessionid_provided": bool(sessionid),
+        },
+    )
+
     def run():
         raw = query_metadata(term=term, db=db, page=page, pagesize=pagesize, genome_next=genome_next, language=language, userid=userid, sessionid=sessionid)
         return metadata_page(raw, db=db, page=page, pagesize=pagesize)
