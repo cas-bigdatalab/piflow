@@ -44,6 +44,14 @@ def test_aggregate_search_retains_each_records_real_database():
     assert detail["item"]["raw"] == {"Title": "Metadata only", "UID": 44}
 
 
+def test_optional_display_fields_and_unknown_totals_keep_usable_records():
+    rows = [{"SDI": "record-1", "extension": {"value": [1, 2]}}, {"Title": "Metadata without an identifier"}]
+    result = backend.metadata_page({"data": {"results": rows, "total": "unknown", "extension": True}})
+    assert [item["raw"] for item in result["items"]] == rows
+    assert result["items"][0]["title"] is None and result["items"][1]["sdi"] is None
+    assert result["pagination"]["total"] is None and result["metadata"]["extension"] is True
+
+
 @pytest.mark.parametrize("payload", [{"message": "try later"}, {"results": {}}, {"results": [None]},
     {"results": [{"message": "try later"}]}, {"results": [{"error": "denied"}]},
     {"code": 500, "results": []}, {"success": False, "results": []}, {"error": "denied", "results": []}])
@@ -66,7 +74,7 @@ def test_empty_results_unknown_totals_and_detail_binding():
 
 
 def test_upstream_transport_closes_responses_and_never_places_key_in_query(monkeypatch):
-    response = SimpleNamespace(ok=True, json=lambda: {"results": []}, close=lambda: calls.append("closed"))
+    response = SimpleNamespace(ok=True, json=lambda: {"results": []}, text="Not authenticated", close=lambda: calls.append("closed"))
     calls = []
     def get(url, **kwargs):
         calls.append((url, kwargs))
@@ -75,12 +83,46 @@ def test_upstream_transport_closes_responses_and_never_places_key_in_query(monke
     monkeypatch.setattr(backend, "_headers", lambda **kwargs: {"X-AK": "private-test-key"})
     backend.query_metadata(term="ngs", db="BIE", page=2, pagesize=3, genome_next="opaque", sessionid="upstream")
     assert calls[-1] == "closed"
-    assert calls[0][1]["params"] == {"term": "ngs", "db": "BIE", "page": 2, "pagesize": 3, "genomeNext": "opaque"}
+    assert calls[0][1]["params"] == {"term": "ngs", "db": "BIE", "page": 2, "pagesize": 3,
+        "genomeNext": "opaque", "language": "ch", "userid": "1"}
     assert "private-test-key" not in str(calls[0][1]["params"])
     response.ok, response.status_code = False, 401
     with pytest.raises(backend.BdbeUpstreamError) as caught:
         backend.query_metadata(term="ngs")
     assert caught.value.status_code == 401 and calls[-1] == "closed"
+
+
+@pytest.mark.parametrize("db", [None, "BIE", "AnotherDatabase"])
+def test_request_contract_keeps_host_auth_defaults_and_explicit_database(monkeypatch, db):
+    calls = []
+    config = SimpleNamespace(base_url="http://upstream.example:8003", host_header="bdbe.cn",
+        access_key="private-test-key", timeout_seconds=30)
+    monkeypatch.setattr(backend, "get_settings", lambda: SimpleNamespace(bdbe=config))
+    response = SimpleNamespace(ok=True, json=lambda: {"results": []}, close=lambda: None)
+    monkeypatch.setattr(backend.requests, "get", lambda url, **kwargs: calls.append((url, kwargs)) or response)
+    backend.query_metadata(term="ngs", db=db)
+    url, request = calls[0]
+    assert url == "http://upstream.example:8003/bioservice/meta/query"
+    assert request["headers"] == {"Accept": "application/json", "Host": "bdbe.cn", "X-AK": "private-test-key"}
+    expected = {"term": "ngs", "page": 1, "pagesize": 5, "language": "ch", "userid": "1"}
+    assert request["params"] == (expected if db is None else {**expected, "db": db})
+    assert request["cookies"] is None and request["timeout"] == 30
+
+
+def test_upstream_http_failure_keeps_status_and_logs_safe_request_context(monkeypatch, caplog):
+    closed = []
+    response = SimpleNamespace(ok=False, status_code=500, text="Internal Server Error",
+        json=lambda: json.loads("Internal Server Error"), close=lambda: closed.append(True))
+    monkeypatch.setattr(backend.requests, "get", lambda *args, **kwargs: response)
+    monkeypatch.setattr(backend, "_headers", lambda **kwargs: {"X-AK": "private-test-key"})
+    with pytest.raises(backend.BdbeUpstreamError, match="status 500: Internal Server Error") as caught:
+        backend.query_metadata(term="private-query", db="BIE", page=2, pagesize=3,
+            userid="private-user", genome_next="private-cursor", sessionid="private-session")
+    assert caught.value.status_code == 500 and closed == [True]
+    assert "status=500" in caplog.text and "'db': 'BIE'" in caplog.text and "'pagesize': '3'" in caplog.text
+    assert "session_present=True" in caplog.text
+    assert not any(value in caplog.text for value in ("private-query", "private-test-key", "private-user",
+        "private-cursor", "private-session"))
 
 
 def test_real_mcp_schema_alias_and_normalized_result(monkeypatch):
@@ -91,7 +133,8 @@ def test_real_mcp_schema_alias_and_normalized_result(monkeypatch):
             value = await client.call_tool("search_bdbe_metadata", {"term": "ngs", "genomeNext": "token"})
             assert value.data["items"][0]["sdi"] == "BIE-1"
     asyncio.run(run())
-    assert calls[0]["genome_next"] == "token" and calls[0]["pagesize"] == 20
+    assert calls[0]["genome_next"] == "token" and calls[0]["pagesize"] == 5
+    assert calls[0]["language"] == "ch" and calls[0]["userid"] == "1"
 
 
 def test_group_routing_binding_dedup_and_future_child_scope():
@@ -104,6 +147,7 @@ def test_group_routing_binding_dedup_and_future_child_scope():
                 ("看下这个数据集的详情以及目录结构", {"get_corpus_dataset_detail", "get_corpus_dataset_directory"}),
                 ("从 PubChem 找相似化合物 SMILES 并保存成 CSV", {"query_pubchem_compounds", "export_dataset"}),
                 ("在 BDBE 找 ngs 相关的数据", {"search_bdbe_metadata"}),
+                ("帮我在BDBE上找一些化工相关的数据", {"search_bdbe_metadata"}),
             ]:
                 assert expected <= {tool.name for tool in select_tools(all_tools, query, source_scope=True)[:4]}
             # Loading an additional provider must retain the old plan identity.
