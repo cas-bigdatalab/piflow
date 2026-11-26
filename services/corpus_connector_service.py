@@ -20,7 +20,7 @@ import time
 import zipfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import quote, unquote, urlencode, urlparse
 from uuid import uuid4
 
@@ -2393,8 +2393,22 @@ def _normalize_required_text(value: Any, *, field_name: str) -> str:
 # File-producing MCP services. References are portable across MCP/QA processes;
 # only storage primitives, not an agent runtime or conversation state, are shared.
 _PUBCHEM_ROOT = "https://pubchem.ncbi.nlm.nih.gov/rest/pug"
+_ENTREZ_ROOT = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
+# PUG property name: (Entrez index, value type, units). Schema and execution use
+# the same catalogue; molecular formula is an output, not a numeric predicate.
+PUBCHEM_PROPERTIES = {
+    "MolecularFormula": (None, str, None),
+    "MolecularWeight": ("MW", float, "g/mol"),
+    "XLogP": ("LOGP", float, "dimensionless"),
+    "TPSA": ("TPSA", float, "angstrom^2"),
+    "Complexity": ("CPLX", float, "dimensionless"),
+    "Charge": ("TFC", int, "elementary charge"),
+}
+CompoundProperty = Literal[tuple(PUBCHEM_PROPERTIES)]
+CompoundFilterField = Literal[tuple(name for name, spec in PUBCHEM_PROPERTIES.items() if spec[0])]
+CompoundSearchType = Literal["similarity", "substructure", "superstructure", "property"]
 _COMPOUND_FIELDS = ("CID", "SMILES", "MolecularWeight", "XLogP")
-_FILTER_FIELDS = frozenset({"MolecularWeight", "XLogP"})
+_FILTER_FIELDS = frozenset(name for name, spec in PUBCHEM_PROPERTIES.items() if spec[0])
 _CANDIDATE_LIMIT = 20000
 _RESULT_BYTES = 64 * 1024 * 1024
 
@@ -2556,7 +2570,7 @@ class _ResultFiles:
         return result, rows
 
 
-def _pubchem_slot(root, deadline):
+def _pubchem_slot(root, deadline, *, interval=0.25):
     # Shared by workers on this backend host, rather than one limiter per user.
     # A short SQLite transaction reserves a slot without holding it over HTTP.
     root.mkdir(parents=True, exist_ok=True)
@@ -2567,25 +2581,37 @@ def _pubchem_slot(root, deadline):
         slot = max(time.time(), row[0] if row else 0)
         if slot >= deadline:
             raise TimeoutError("本次请求等待时间已达到预算")
-        conn.execute("INSERT OR REPLACE INTO rate VALUES (1, ?)", (slot+0.25,))
+        conn.execute("INSERT OR REPLACE INTO rate VALUES (1, ?)", (slot+interval,))
     while time.time() < slot:
         _checkpoint(deadline)
         time.sleep(min(0.1, max(0, slot-time.time())))
 
 
 def _pubchem_request(session, route, data, params, root, deadline):
+    return _compound_request(session, _PUBCHEM_ROOT+route, data, params, root, deadline)
+
+
+def _entrez_request(session, params, root, deadline):
+    # E-utilities permits three requests/second without an API key. Its limiter
+    # is shared across users/workers, independently of the PUG REST budget.
+    return _compound_request(session, _ENTREZ_ROOT+"/esearch.fcgi", params, {},
+        root / "entrez", deadline, interval=0.34)
+
+
+def _compound_request(session, url, data, params, root, deadline, *, interval=0.25):
     for attempt in range(2):
         _checkpoint(deadline)
-        _pubchem_slot(root, deadline)
+        _pubchem_slot(root, deadline, interval=interval)
         try:
-            with session.post(_PUBCHEM_ROOT+route, data=data, params=params,
+            with session.post(url, data=data, params=params,
                     stream=True, timeout=(min(5, max(0.1, deadline-time.time())), min(30, max(0.1, deadline-time.time())))) as response:
-                if response.status_code == 404:
-                    return {"IdentifierList": {"CID": []}, "PropertyTable": {"Properties": []}}
                 if response.status_code in {429, 502, 503, 504} and attempt == 0:
                     time.sleep(min(1, max(0, deadline-time.time())))
                     continue
-                response.raise_for_status()
+                # A structured PUG NotFound is distinct from an invalid route,
+                # a proxy HTML 404, and a missing property batch.
+                if response.status_code != 404:
+                    response.raise_for_status()
                 body = bytearray()
                 for chunk in response.iter_content(64 * 1024):
                     _checkpoint(deadline)
@@ -2597,6 +2623,11 @@ def _pubchem_request(session, route, data, params, root, deadline):
                 value = json.loads(body)
                 if not isinstance(value, dict):
                     raise ValueError("数据源响应不是有效的结果对象")
+                fault = value.get("Fault")
+                if (response.status_code == 404 and "/compound/fast" in url
+                        and isinstance(fault, dict) and fault.get("Code") == "PUGREST.NotFound"):
+                    return {"IdentifierList": {"CID": []}}
+                response.raise_for_status()
                 return value
         except (requests.Timeout, requests.ConnectionError):
             if attempt:
@@ -2604,19 +2635,28 @@ def _pubchem_request(session, route, data, params, root, deadline):
     raise RuntimeError("本次数据源暂未提供完整响应")
 
 
-def query_pubchem_records(smiles, similarity_threshold=80, filters=None, limit=None, *, execution=None):
-    """One bounded similarity query followed by property batches and deterministic filters."""
-    arguments = {"smiles": smiles, "similarity_threshold": similarity_threshold, "filters": filters, "limit": limit}
-    files = _ResultFiles(execution, arguments)
-    if (not isinstance(smiles, str) or not smiles.strip() or len(smiles) > 4000
+def _compound_query(search_type, smiles, smarts, similarity_threshold, filters, properties, limit):
+    if (search_type not in {"similarity", "substructure", "superstructure", "property"}
             or type(similarity_threshold) is not int or not 1 <= similarity_threshold <= 100
             or limit is not None and (type(limit) is not int or not 1 <= limit <= _CANDIDATE_LIMIT)):
-        raise ValueError("请提供有效的结构、相似度阈值和目标数量")
-    rules = filters or []
+        raise ValueError("请提供有效的检索模式、相似度阈值和目标数量")
+    for structure in (smiles, smarts):
+        if structure is not None and (not isinstance(structure, str) or not structure.strip() or len(structure) > 4000):
+            raise ValueError("结构须为非空的 SMILES 或 SMARTS，长度不超过 4000")
+    if search_type == "property":
+        valid_structure = smiles is None and smarts is None
+    elif search_type == "substructure":
+        valid_structure = (smiles is None) != (smarts is None)
+    else:
+        valid_structure = smiles is not None and smarts is None
+    if not valid_structure or (search_type != "similarity" and similarity_threshold != 80):
+        raise ValueError("相似/超结构使用 SMILES；子结构使用 SMILES 或 SMARTS 二选一；纯属性不传结构。相似度仅适用于相似检索")
+    rules = [] if filters is None else filters
     if not isinstance(rules, list) or len(rules) > 8:
         raise ValueError("属性筛选条件超出支持范围")
     for rule in rules:
         if (not isinstance(rule, dict) or set(rule)-{"field", "minimum", "maximum"}
+                or not isinstance(rule.get("field"), str)
                 or rule.get("field") not in _FILTER_FIELDS
                 or not any(rule.get(k) is not None for k in ("minimum", "maximum"))):
             raise ValueError("筛选须使用支持的数值属性及范围")
@@ -2624,51 +2664,153 @@ def query_pubchem_records(smiles, similarity_threshold=80, filters=None, limit=N
             value = rule.get(key)
             if value is not None and (type(value) not in {int, float} or not math.isfinite(value)):
                 raise ValueError("属性范围须为有限数值")
+            if value is not None and PUBCHEM_PROPERTIES[rule["field"]][1] is int and int(value) != value:
+                raise ValueError("整数属性的上下限须为整数")
         if rule.get("minimum") is not None and rule.get("maximum") is not None and rule["minimum"] > rule["maximum"]:
             raise ValueError("属性下限不能大于上限")
+    if search_type == "property" and not rules:
+        raise ValueError("纯属性检索至少需要一个数值范围条件")
+    # Intersect repeated predicates before sending them to the index. Never
+    # silently replace or drop a contradictory user condition.
+    ranges = {}
+    for rule in rules:
+        low, high = ranges.get(rule["field"], (None, None))
+        if rule.get("minimum") is not None:
+            low = max(low, rule["minimum"]) if low is not None else rule["minimum"]
+        if rule.get("maximum") is not None:
+            high = min(high, rule["maximum"]) if high is not None else rule["maximum"]
+        if low is not None and high is not None and low > high:
+            raise ValueError("同一属性的多个范围没有交集，请明确所需范围")
+        ranges[rule["field"]] = low, high
+    chosen = list(_COMPOUND_FIELDS[2:]) if properties is None else properties
+    if not isinstance(chosen, list) or len(chosen) > len(PUBCHEM_PROPERTIES) or any(
+            not isinstance(field, str) or field not in PUBCHEM_PROPERTIES for field in chosen):
+        raise ValueError("请选择工具定义中支持的导出属性")
+    fields = tuple(dict.fromkeys(("CID", "SMILES", *chosen)))
+    fetched = tuple(dict.fromkeys((*fields[1:], *(rule["field"] for rule in rules))))
+    # Entrez documents closed numeric ranges, not wildcard bounds. Push down
+    # only exact ranges; one-sided predicates are checked on every fetched row.
+    # Bounded scans are reported as partial, never as global absence of matches.
+    terms = [f"{low}:{high}[{PUBCHEM_PROPERTIES[field][0]}]" for field, (low, high) in ranges.items()
+        if low is not None and high is not None]
+    return rules, fields, fetched, " AND ".join(terms) or "all[filt]"
+
+
+def _compound_candidates(client, search_type, smiles, smarts, threshold, term, root, deadline, state):
+    seen = set()
+    if search_type != "property":
+        method = {"similarity": "fastsimilarity_2d", "substructure": "fastsubstructure",
+            "superstructure": "fastsuperstructure"}[search_type]
+        namespace, structure = ("smarts", smarts) if smarts is not None else ("smiles", smiles)
+        params = {"MaxRecords": _CANDIDATE_LIMIT}
+        if search_type == "similarity":
+            params["Threshold"] = threshold
+        payload = _pubchem_request(client, f"/compound/{method}/{namespace}/cids/JSON",
+            {namespace: structure}, params, root, deadline)
+        identifiers = payload.get("IdentifierList")
+        raw = identifiers.get("CID") if isinstance(identifiers, dict) else None
+        if not isinstance(raw, list) or any(type(cid) is not int or cid <= 0 for cid in raw):
+            raise ValueError("数据源返回的候选标识不完整")
+        cids = list(dict.fromkeys(raw))[:_CANDIDATE_LIMIT]
+        state.update(candidates=len(cids), duplicates=len(raw)-len(set(raw)),
+            capped=len(raw) >= _CANDIDATE_LIMIT, exhausted=len(raw) < _CANDIDATE_LIMIT)
+        for offset in range(0, len(cids), 200):
+            yield cids[offset:offset+200]
+        return
+    offset, total, history = 0, None, {}
+    while total is None or offset < min(total, _CANDIDATE_LIMIT):
+        _checkpoint(deadline)
+        size = min(200, _CANDIDATE_LIMIT-offset)
+        params = {"db": "pccompound", "term": term, "retmode": "json", "usehistory": "y",
+            "retstart": offset, "retmax": size, **history}
+        payload = _entrez_request(client, params, root, deadline)
+        page = payload.get("esearchresult")
+        if not isinstance(page, dict) or page.get("ERROR") or payload.get("error"):
+            raise ValueError("数据源暂未提供有效的属性检索结果")
+        errors = page.get("errorlist") or {}
+        if not isinstance(errors, dict) or any(errors.values()):
+            raise ValueError("数据源暂未提供有效的属性检索结果")
+        raw, count = page.get("idlist"), page.get("count")
+        if (not isinstance(raw, list) or any(not isinstance(cid, str) or not cid.isdecimal() or int(cid) <= 0 for cid in raw)
+                or not isinstance(count, str) or not count.isdecimal()):
+            raise ValueError("数据源返回的候选标识不完整")
+        if total is not None and total != int(count):
+            raise ValueError("数据源返回的查询快照不一致")
+        total = int(count)
+        if len(raw) != min(size, total-offset):
+            raise ValueError("数据源未完整返回本批候选")
+        if offset+len(raw) < min(total, _CANDIDATE_LIMIT) and not history:
+            if not page.get("querykey") or not page.get("webenv"):
+                raise ValueError("数据源暂未提供后续分页引用")
+            history = {"term": "#"+str(page["querykey"]), "WebEnv": page["webenv"]}
+        batch = []
+        for value in raw:
+            cid = int(value)
+            if cid in seen:
+                state["duplicates"] += 1
+            else:
+                seen.add(cid)
+                batch.append(cid)
+        offset += len(raw)
+        state.update(candidates=len(seen), source_candidates=total, capped=total > _CANDIDATE_LIMIT,
+            exhausted=offset >= total)
+        if batch:
+            yield batch
+
+
+def _compound_value(field, value):
+    kind = PUBCHEM_PROPERTIES[field][1]
+    if kind is str:
+        return value if isinstance(value, str) and value.strip() else None
+    try:
+        number = float(value) if not isinstance(value, bool) else float("nan")
+        if not math.isfinite(number) or kind is int and not number.is_integer():
+            return None
+        return kind(number)
+    except (ValueError, TypeError, OverflowError):
+        return None
+
+
+def query_pubchem_records(smiles=None, similarity_threshold=80, filters=None, limit=None, *,
+        search_type="similarity", smarts=None, properties=None, execution=None):
+    """Bounded candidate discovery, batched properties, exact filters, immutable output."""
+    legacy = {"smiles": smiles, "similarity_threshold": similarity_threshold, "filters": filters, "limit": limit}
+    arguments = {**legacy, "search_type": search_type, "smarts": smarts, "properties": properties}
+    # Old clients sign the four original parameters. Accept that signature only
+    # for unchanged defaults; all new choices remain bound to the signed input.
+    if (search_type == "similarity" and smarts is None and properties is None
+            and isinstance(execution, dict) and execution.get("arguments") == _digest(legacy)):
+        arguments = legacy
+    files = _ResultFiles(execution, arguments)
+    rules, fields, fetched, term = _compound_query(search_type, smiles, smarts, similarity_threshold, filters, properties, limit)
     key = _digest(["pubchem-v1", files.context["request_id"], arguments])
     with _file_execution_lock(files.root / (key+".lock"), files.context["deadline"]):
         if previous := files.previous(key):
             return previous
         deadline = min(files.context["deadline"]-10, time.time()+300)
-        accepted, seen, reasons = [], set(), {}
-        checked, duplicate_count, candidate_count, output_bytes = 0, 0, 0, 0
+        accepted, reasons, missing = [], {}, {}
+        checked, output_bytes = 0, 0
+        state = {"candidates": 0, "duplicates": 0, "capped": False, "exhausted": False}
         stop, coverage = "candidates_exhausted", "complete"
-        cids = []
         try:
             with requests.Session() as client:
-                payload = _pubchem_request(client, "/compound/fastsimilarity_2d/smiles/cids/JSON",
-                    {"smiles": smiles}, {"Threshold": similarity_threshold, "MaxRecords": _CANDIDATE_LIMIT}, files.root, deadline)
-                identifiers = payload.get("IdentifierList")
-                raw = identifiers.get("CID") if isinstance(identifiers, dict) else None
-                if not isinstance(raw, list) or any(type(cid) is not int or cid <= 0 for cid in raw):
-                    raise ValueError("数据源返回的候选标识不完整")
-                cids = list(dict.fromkeys(raw))
-                duplicate_count = len(raw)-len(cids)
-                candidate_count = len(cids)
-                if len(raw) >= _CANDIDATE_LIMIT:
-                    stop, coverage = "candidate_limit", "partial"
-                for offset in range(0, len(cids), 200):
+                for batch in _compound_candidates(client, search_type, smiles, smarts, similarity_threshold,
+                        term, files.root, deadline, state):
                     _checkpoint(deadline)
-                    batch = cids[offset:offset+200]
-                    table = _pubchem_request(client, "/compound/cid/property/SMILES,MolecularWeight,XLogP/JSON",
+                    table = _pubchem_request(client, "/compound/cid/property/"+",".join(fetched)+"/JSON",
                         {"cid": ",".join(map(str, batch))}, {}, files.root, deadline).get("PropertyTable")
-                    properties = table.get("Properties") if isinstance(table, dict) else None
-                    if not isinstance(properties, list):
+                    rows = table.get("Properties") if isinstance(table, dict) else None
+                    if not isinstance(rows, list):
                         raise ValueError("数据源返回的属性信息不完整")
-                    indexed = {row.get("CID"): row for row in properties if isinstance(row, dict) and row.get("CID") in batch}
+                    indexed = {row["CID"]: row for row in rows if isinstance(row, dict)
+                        and type(row.get("CID")) is int and row["CID"] in batch}
                     for cid in batch:
                         checked += 1
                         row = indexed.get(cid)
                         reason = "missing_properties" if row is None else None
                         record = {"CID": cid, "SMILES": (row or {}).get("SMILES") or (row or {}).get("CanonicalSMILES")}
-                        for field in _FILTER_FIELDS:
-                            try:
-                                raw_value = (row or {}).get(field)
-                                value = float(raw_value) if not isinstance(raw_value, bool) else float("nan")
-                                record[field] = value if math.isfinite(value) else None
-                            except (ValueError, TypeError):
-                                record[field] = None
+                        for field in fetched[1:]:
+                            record[field] = _compound_value(field, (row or {}).get(field))
                         for rule in rules:
                             value = record[rule["field"]]
                             if reason:
@@ -2680,21 +2822,26 @@ def query_pubchem_records(smiles, similarity_threshold=80, filters=None, limit=N
                                 reason = "outside_"+rule["field"]
                         if reason:
                             reasons[reason] = reasons.get(reason, 0)+1
-                        elif cid not in seen:
+                        else:
+                            record = {field: record[field] for field in fields}
                             size = len(_canonical(record).encode())+1
                             if output_bytes+size > _RESULT_BYTES:
                                 checked -= 1
                                 stop, coverage = "output_limit", "partial"
                                 break
                             output_bytes += size
-                            seen.add(cid)
                             accepted.append(record)
+                            for field, value in record.items():
+                                if value is None:
+                                    missing[field] = missing.get(field, 0)+1
                         if limit and len(accepted) >= limit:
                             stop = "target_reached"
-                            coverage = "partial" if checked < candidate_count or len(raw) >= _CANDIDATE_LIMIT else "complete"
+                            coverage = "complete" if state["exhausted"] and checked == state["candidates"] else "partial"
                             break
                     if stop in {"target_reached", "output_limit"}:
                         break
+                if stop == "candidates_exhausted" and state["capped"]:
+                    stop, coverage = "candidate_limit", "partial"
         except (requests.RequestException, TimeoutError, ValueError) as exc:
             logging.getLogger("flow.corpus.pubchem").info("Query interrupted: operation=%s code=%s checked=%s accepted=%s",
                 key[:12], type(exc).__name__, checked, len(accepted))
@@ -2702,11 +2849,15 @@ def query_pubchem_records(smiles, similarity_threshold=80, filters=None, limit=N
         result = {"status": "ready" if accepted else "empty" if coverage == "complete" else "unavailable",
             "source": "PubChem", "query": arguments, "coverage": coverage, "stop_reason": stop,
             "record_count": len(accepted), "target_count": limit, "target_met": None if limit is None else len(accepted) >= limit,
-            "statistics": {"candidates": candidate_count, "checked": checked, "accepted": len(accepted),
-                "excluded": sum(reasons.values()), "exclusion_reasons": reasons, "duplicate_candidates": duplicate_count,
+            "statistics": {"candidates": state["candidates"], "checked": checked, "accepted": len(accepted),
+                "excluded": sum(reasons.values()), "exclusion_reasons": reasons, "duplicate_candidates": state["duplicates"],
                 "reason_policy": "first_failed_condition"},
             "message": "已按指定条件取得结果" if accepted else "当前条件下未取得匹配记录" if coverage == "complete" else "本次暂未取得可确认的记录",
             "resource": None}
+        if missing:
+            result["statistics"]["missing_output_fields"] = missing
+        if "source_candidates" in state:
+            result["statistics"]["source_candidates"] = state["source_candidates"]
         if not accepted:
             return files.save_outcome(key, result)
         with tempfile.TemporaryDirectory(dir=files.root) as temporary:
@@ -2714,7 +2865,7 @@ def query_pubchem_records(smiles, similarity_threshold=80, filters=None, limit=N
             with path.open("w", encoding="utf-8", newline="\n") as handle:
                 for row in accepted:
                     handle.write(_canonical(row)+"\n")
-            return files.save(key, path, result, _COMPOUND_FIELDS, len(accepted), "jsonl", "pubchem-compounds.jsonl")
+            return files.save(key, path, result, fields, len(accepted), "jsonl", "pubchem-compounds.jsonl")
 
 
 def export_record_file(source_ref, format="csv", *, execution=None):

@@ -124,6 +124,11 @@ def _get_json(
 
     try:
         if not response.ok:
+            # Diagnose request-contract differences without logging credentials,
+            # user identifiers, search text or opaque continuation tokens.
+            context = {key: str(params[key])[:80] for key in ("db", "page", "pagesize", "language") if key in params}
+            log.warning("BDBE HTTP request failed operation=%s status=%s params=%r term_length=%s session_present=%s",
+                path, response.status_code, context, len(str(params.get("term", ""))), bool(sessionid))
             raise _request_error(response, path)
         try:
             payload = response.json()

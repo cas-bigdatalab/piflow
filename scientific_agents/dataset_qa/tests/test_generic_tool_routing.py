@@ -1,10 +1,12 @@
 """Advertised tool inputs distinguish capabilities sharing one source name."""
+import asyncio
 from dataclasses import replace
 
 import pytest
 
-from ..mcp import Tool
+from ..mcp import Tool, terms
 from ..routing import select_tools
+from .test_dataset_qa import Backend, definition
 
 
 def catalogue():
@@ -59,9 +61,12 @@ def test_source_hint_keeps_other_sources_reachable():
     assert ranked[0] == tools[2]
     assert len(ranked) == 3
     assert select_tools(tools, "OtherArchive", group="catalogue") == [tools[0]]
+    # A request without a source must not erase the refined query's hint.
+    assert select_tools(tools, "OtherArchive molecular weight mass interval similarity",
+        source_query="帮我找化工数据")[0] == tools[2]
 
 
-@pytest.mark.parametrize("query", ["OtherArchive", "Find observations from otherarchive"])
+@pytest.mark.parametrize("query", ["OtherArchive", "Find observations from otherarchive", "帮我在OtherArchive上找一些数据"])
 def test_initial_source_recall_preserves_neutral_tools_without_filling_unrelated_slots(query):
     tools = catalogue()
     tools[2] = replace(tools[2], meta={"piflow": {"qa": {
@@ -73,8 +78,50 @@ def test_initial_source_recall_preserves_neutral_tools_without_filling_unrelated
     # This is only initial recall, not a source ACL or a group-name special case.
     assert len(select_tools(tools, query)) == 4
     assert len(select_tools(tools, "ArchiveDB and OtherArchive", source_scope=True)) == 4
+    assert len(select_tools(tools, "从ArchiveDB和OtherArchive找数据", source_scope=True)) == 4
     assert len(select_tools(tools, "unmentioned source", source_scope=True)) == 4
     assert select_tools(tools, query, group="catalogue", source_scope=True) == [tools[0]]
+
+
+@pytest.mark.parametrize("source", ["ArchiveDB", "OtherArchive", "Data_Hub7"])
+def test_source_identifiers_survive_adjacent_text_without_matching_prefixes(source):
+    assert source.casefold() in terms(f"帮我在{source}上找一些化工相关的数据")
+    assert source.casefold() not in terms(f"帮我在{source}Extra上找数据")
+    tools = catalogue()
+    tools[2] = replace(tools[2], meta={"piflow": {"qa": {
+        "routing": {"group": "cells", "source": source}}}})
+    expected = tools if source == "ArchiveDB" else [tools[2]]
+    assert {tool.name for tool in select_tools(tools, f"从{source}找数据", source_scope=True)} == {tool.name for tool in expected}
+
+
+@pytest.mark.parametrize("warm", [False, True])
+def test_explicit_loading_retains_request_source_but_allows_other_groups_and_new_turns(warm):
+    async def run():
+        backend = Backend()
+        backend.catalog = {"data": []}
+        for name, source, group in [("search", "ArchiveDB", "catalogue"), ("inspect", "OtherArchive", "other")]:
+            item = definition(name)
+            item.description = "Search chemical datasets" if name == "search" else "Find metadata"
+            item.meta = {"piflow": {"qa": {"routing": {"source": source, "group": group}}}}
+            backend.catalog["data"].append(item)
+        gateway = backend.gateway()
+        if warm:
+            async with gateway.session() as previous:
+                await previous.load("data", query="Search chemical datasets")
+        async with gateway.session() as tools:
+            await tools.prepare("帮我在OtherArchive上找化工数据")
+            assert [tool.name for tool in tools.loaded.values()] == ["inspect"]
+            page = await tools.load("data", query="Search chemical datasets", limit=1)
+            assert page["items"][0]["tool"] == "inspect" and page["next_offset"] == 1
+            remaining = await tools.load("data", query="Search chemical datasets", offset=1, limit=1)
+            assert remaining["items"][0]["tool"] == "search"
+            explicit = await tools.load("data", query="OtherArchive", group="catalogue")
+            assert explicit["items"][0]["tool"] == "search"
+        async with gateway.session() as tools:
+            await tools.prepare("从ArchiveDB找数据")
+            assert [tool.name for tool in tools.loaded.values()] == ["search"]
+        assert backend.lists == ["data"] and not backend.calls
+    asyncio.run(run())
 
 
 def test_schema_vocabulary_needs_no_routing_metadata_and_ignores_example_data():

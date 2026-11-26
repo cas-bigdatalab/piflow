@@ -62,7 +62,8 @@ def files(monkeypatch, tmp_path):
 def query_args(**kwargs):
     return {"smiles": "CC(=O)OC1=CC=CC=C1C(=O)O", "similarity_threshold": 80,
         "filters": [{"field": "MolecularWeight", "minimum": 100, "maximum": 500},
-            {"field": "XLogP", "minimum": -1, "maximum": 5}], "limit": 1000, **kwargs}
+        {"field": "XLogP", "minimum": -1, "maximum": 5}], "limit": 1000,
+        "search_type": "similarity", "smarts": None, "properties": None, **kwargs}
 
 
 def query_plan():

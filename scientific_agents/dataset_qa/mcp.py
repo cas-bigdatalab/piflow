@@ -39,7 +39,8 @@ def transient(error, depth=0):
 
 
 def terms(text):
-    words = re.findall(r"[a-z0-9_]+|[^\W\d_]+", str(text).casefold())
+    # Keep ASCII identifiers intact even when adjacent to non-ASCII text.
+    words = re.findall(r"[a-z0-9_]+|[^\W\d_a-z]+", str(text).casefold())
     result = set(words)
     for word in words:
         if any(ord(c)>127 for c in word):
@@ -648,7 +649,7 @@ class ToolSession:
         from .routing import select_tools
         query = query or self.request_query
         catalogue = select_tools([*await self.tools(server), *self.definition_errors.get(server, [])], query,
-            group=group, resources=self.request_resources)
+            group=group, resources=self.request_resources, source_query=self.request_query or query)
         page = catalogue[offset:offset+limit]
         result = self.include(item for item in page if isinstance(item, Tool))
         result["items"].extend(deepcopy(item) for item in page if isinstance(item, dict))
@@ -705,7 +706,20 @@ class ToolSession:
                 # Evolving the compiled validator retains the ORIGINAL local
                 # reference resolver ($defs, anchors and recursive schemas).
                 validator = validator.evolve(schema=known)
-            validator.validate(arguments)
+            try:
+                validator.validate(arguments)
+            except ValidationError:
+                from .arguments import normalize_numbers
+                normalized = normalize_numbers(arguments, validator.schema)
+                if normalized == arguments:
+                    raise
+                # Commit only after the full contract accepts the candidate.
+                # Preflight, dispatch and execution receipts share these values.
+                validator.validate(normalized)
+                if len(encode(normalized)) > self.limits.context_chars:
+                    raise QAError("invalid_parameters", "工具参数超过运行预算")
+                arguments.clear()
+                arguments.update(normalized)
         except ValidationError as exc:
             actual_type = next((name for name in ("null", "boolean", "integer", "number", "string", "array", "object")
                 if validator.TYPE_CHECKER.is_type(exc.instance, name)), "unknown")

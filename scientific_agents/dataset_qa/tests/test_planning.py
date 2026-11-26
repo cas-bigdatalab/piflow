@@ -35,10 +35,13 @@ def approve(messages, definitions):
     return action("review_plan", revision=plan["revision"], covered=[item["key"] for item in plan["outcomes"]])
 
 
-def test_scheduler_resolves_sources_runs_dependencies_and_delivers_only_outcomes(engine):
+@pytest.mark.parametrize("count", [3, "3"])
+def test_scheduler_resolves_sources_runs_dependencies_and_delivers_only_outcomes(engine, count):
     async def run():
         backend = configured()
-        dialogue = BareDialogue(load(), action("remember", plan=specimen()), approve, text())
+        plan = specimen()
+        plan["steps"][-1]["arguments"]["count"] = count
+        dialogue = BareDialogue(load(), action("remember", plan=plan), approve, text())
         service = DatasetQA(engine, dialogue, backend.gateway())
         sid = session(service)
         try:

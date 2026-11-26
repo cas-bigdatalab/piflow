@@ -28,6 +28,9 @@ from services.corpus_connector_service import (
     list_dataset_details,
     query_pubchem_records,
     export_record_file,
+    CompoundProperty,
+    CompoundFilterField,
+    CompoundSearchType,
 )
 
 
@@ -436,25 +439,30 @@ def _artifact_error(error):
 
 class CompoundPropertyRange(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
-    field: Literal["MolecularWeight", "XLogP"]
+    field: CompoundFilterField
     minimum: int | float | None = None
     maximum: int | float | None = None
 
 
 @mcp.tool(annotations={"title": "PubChem 化合物检索与筛选", "readOnlyHint": False,
     "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
-    meta=_file_capability("record_resource", "pubchem", "PubChem", ["similarity_search", "property_filter"],
-        ["SMILES"], ["jsonl", "record_resource"], plan_required=True))
+    meta=_file_capability("record_resource", "pubchem", "PubChem",
+        ["similarity_search", "substructure_search", "superstructure_search", "property_filter"],
+        ["SMILES", "SMARTS", "property_ranges"], ["jsonl", "record_resource"], plan_required=True))
 async def query_pubchem_compounds(
     ctx: Context,
-    smiles: Annotated[str, Field(min_length=1, max_length=4000, description="用户提供的查询分子 SMILES，不改写结构")],
-    similarity_threshold: Annotated[int, Field(ge=1, le=100, description="PubChem 二维 Tanimoto 相似度百分比下限，80 表示 80%；结果不提供每条相似度分数")]=80,
-    filters: Annotated[list[CompoundPropertyRange] | None, Field(max_length=8, description="AND 数值范围条件；上下限至少一个，包含边界。XLogP 是计算值；缺失值不通过指定条件")]=None,
+    smiles: Annotated[str | None, Field(min_length=1, max_length=4000, description="用户提供的 SMILES 原值；similarity/superstructure 必填，substructure 与 smarts 二选一，property 不填")]=None,
+    similarity_threshold: Annotated[int, Field(ge=1, le=100, description="仅 similarity 使用：PubChem 二维 Tanimoto 百分比下限，默认 80；其他模式不要设置。结果不提供每条相似度分数")]=80,
+    filters: Annotated[list[CompoundPropertyRange] | None, Field(max_length=8, description="AND 数值范围，至少一个上下限且包含边界。MolecularWeight:g/mol；XLogP:计算值；TPSA:Å²；Complexity:复杂度；Charge:整数形式电荷。缺失值不通过指定条件")]=None,
     limit: Annotated[int | None, Field(ge=1, le=20000, description="筛选后期望条数；不是最低交付条数。省略时处理本次候选直到完成或预算截止，不承诺全库穷尽")]=None,
+    search_type: Annotated[CompoundSearchType, Field(description="similarity=相似分子(默认)；substructure=结果包含输入结构；superstructure=输入分子包含结果结构；property=仅按数值属性检索，filters 必填")]="similarity",
+    smarts: Annotated[str | None, Field(min_length=1, max_length=4000, description="仅 substructure 使用的 SMARTS 模式，与 smiles 二选一；保留用户原值")]=None,
+    properties: Annotated[list[CompoundProperty] | None, Field(max_length=6, description="所需结果属性列及顺序。支持 MolecularFormula、MolecularWeight、XLogP、TPSA、Complexity、Charge；始终保留 CID、SMILES。省略保持原默认 MolecularWeight/XLogP；MolecularFormula 不能作数值筛选")]=None,
 ) -> dict[str, Any]:
-    """从 PubChem 按分子结构检索相似化合物并筛选属性，不检索数据集目录。
+    """从 PubChem 按结构、属性或两者组合检索化合物，不检索数据集目录。
 
     工具内部批量获取属性、筛选、按 CID 去重并保存 JSONL；不是让模型逐条计算。
+    properties 控制输出列；filters 所需的额外属性仅参与筛选。仅输出字段缺失保留空值并统计。
     返回 resource、record_count、target_count/target_met、statistics、coverage、stop_reason。
     任意数量的合格结果均可交付；不足目标不改条件重搜，截断不代表数据源穷尽。
     需要 CSV 时将 resource 引用交给 export_dataset；不要重跑检索或调用随机采样。
@@ -464,7 +472,8 @@ async def query_pubchem_compounds(
         rules = [value.model_dump(exclude_unset=True) for value in filters] if filters is not None else None
         with _artifact_download_context():
             return await anyio.to_thread.run_sync(partial(query_pubchem_records, smiles,
-                similarity_threshold, rules, limit, execution=_execution_context(ctx)))
+                similarity_threshold, rules, limit, search_type=search_type, smarts=smarts,
+                properties=properties, execution=_execution_context(ctx)))
     except (ArtifactStorageError, OSError) as exc:
         return _artifact_error(exc)
     except ValueError as exc:

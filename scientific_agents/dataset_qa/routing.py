@@ -15,7 +15,8 @@ def _routing_terms(text):
     from .mcp import terms
 
     # Keep exact identifiers while also matching ordinary words in snake_case.
-    return terms(text) | terms(str(text).replace("_", " "))
+    words = terms(text)
+    return words | terms(str(text).replace("_", " ")) if "_" in str(text) else words
 
 
 def _schema_words(schema):
@@ -63,17 +64,22 @@ def relevance(tool, query):
     return len(_routing_terms(query) & _tool_terms(tool, profile(tool).routing))
 
 
-def select_tools(items, query, *, group=None, recent=(), resources=(), source_scope=False):
+def select_tools(items, query, *, group=None, recent=(), resources=(), source_scope=False, source_query=None):
     from .capabilities import profile
     from .mcp import terms
 
     items = list(items)
     wanted, previous = _routing_terms(query), set(recent)
+    source_terms = wanted if source_query is None or source_query == query else _routing_terms(source_query)
     candidates = [(tool, None if isinstance(tool, dict) else profile(tool).routing) for tool in items]
     # Match complete advertised source names, not incidental words in tool
     # descriptions. Source-neutral transforms remain available in this scope.
     sources = {routing.source for _, routing in candidates
-        if routing and routing.source and terms(routing.source) <= wanted}
+        if routing and routing.source and terms(routing.source) <= source_terms}
+    if not sources and source_query is not None and source_query != query:
+        # A refined discovery query may name a source when the request did not.
+        sources = {routing.source for _, routing in candidates
+            if routing and routing.source and terms(routing.source) <= wanted}
     scored = []
     for index, (tool, routing) in enumerate(candidates):
         if isinstance(tool, dict):
@@ -92,6 +98,8 @@ def select_tools(items, query, *, group=None, recent=(), resources=(), source_sc
         # History breaks a relevance tie; it cannot override this request.
         scored.append((outside, -score, (tool.server, tool.name) not in previous, index, tool))
     ranked = [row[-1] for row in sorted(scored, key=lambda row: row[:4])]
+    if not resources:
+        return ranked
     # Keep the request's leading candidate, while reserving one early slot for
     # a consumer of an actually delivered resource. This is candidate recall,
     # not an implicit focus switch or permission to reuse an old query.
